@@ -14,21 +14,22 @@ from clients.mago3d import Mago3D
 from drone_image_check import start_image_check
 
 from server.image_processing.orthophoto_generation.Orthophoto import rectify
+from server.image_processing.system_calibration import calibrate
 # from server.image_processing.orthophoto_generation.Orthophoto import rectify_detected_bbox
 # from server.image_processing.orthophoto_generation.EoData import convertCoordinateSystem_tm2latlon
 import socket
 import cv2
 import numpy as np
 
-# socket for sending
-TCP_IP = '192.168.0.24'
-TCP_PORT = 8080
-
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-s.connect((TCP_IP, TCP_PORT))
-print('connected!')
+# # socket for sending
+# TCP_IP = '192.168.0.24'
+# TCP_PORT = 8080
+#
+# s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+#
+# s.connect((TCP_IP, TCP_PORT))
+# print('connected!')
 
 
 # Initialize flask
@@ -117,8 +118,10 @@ def ldm_upload(project_id_str):
         if my_drone.pre_calibrated:
             pass
         else:
-            # TODO: Implement system calibration procedure
-            pass
+            OPK = calibrate(parsed_eo[3], parsed_eo[4], parsed_eo[5], my_drone.ipod_params["R_CB"])
+            parsed_eo[3] = OPK[0]
+            parsed_eo[4] = OPK[1]
+            parsed_eo[5] = OPK[2]
 
         # IPOD chain 2: Individual ortho-image generation
         fname_dict['img_rectified'] = fname_dict['img'].split('.')[0] + '.tif'
@@ -134,27 +137,27 @@ def ldm_upload(project_id_str):
         # # IPOD chain 3: Object detection
         # # TODO: Implement object detection functions
         #
-        imgencode = cv2.imread(project_path + '/' + fname_dict['img_rectified'])
-        print(project_path + '/' + fname_dict['img_rectified'])
-        hei = imgencode.shape[0]
-        wid = imgencode.shape[1]
-
-        stringData = imgencode.tostring()
-
-        s.send(str(wid).encode().ljust(16))
-        s.send(str(hei).encode().ljust(16))
-        s.send(stringData)
-        print("start sending")
-
-        # Receiving Bbox info
-        data_len = s.recv(16)
-
-        x1 = json.loads(s.recv(int(data_len)))
-        y1 = json.loads(s.recv(int(data_len)))
-        x2 = json.loads(s.recv(int(data_len)))
-        y2 = json.loads(s.recv(int(data_len)))
-
-        print("BBox info received!!!!!")
+        # imgencode = cv2.imread(project_path + '/' + fname_dict['img_rectified'])
+        # print(project_path + '/' + fname_dict['img_rectified'])
+        # hei = imgencode.shape[0]
+        # wid = imgencode.shape[1]
+        #
+        # stringData = imgencode.tostring()
+        #
+        # s.send(str(wid).encode().ljust(16))
+        # s.send(str(hei).encode().ljust(16))
+        # s.send(stringData)
+        # print("start sending")
+        #
+        # # Receiving Bbox info
+        # data_len = s.recv(16)
+        #
+        # x1 = json.loads(s.recv(int(data_len)))
+        # y1 = json.loads(s.recv(int(data_len)))
+        # x2 = json.loads(s.recv(int(data_len)))
+        # y2 = json.loads(s.recv(int(data_len)))
+        #
+        # print("BBox info received!!!!!")
         #
         # for i in range(len(x1)):
         #     bbox = [x1[i], y1[i], x2[i], y2[i]]
@@ -289,7 +292,7 @@ def webodm_start_processing(project_id_str):
 
 
 if __name__ == '__main__':
-    app.run(threaded=True, host='0.0.0.0', port=5000)
+    app.run(threaded=True, host='0.0.0.0', port=8080)
     # socket.close()
 
 
