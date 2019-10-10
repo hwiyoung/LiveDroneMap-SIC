@@ -10,24 +10,25 @@ from server import config_flask
 from server.image_processing.img_metadata_generation import create_img_metadata
 from clients.webodm import WebODM
 from clients.mago3d import Mago3D
-from drone.drone_image_check import start_image_check
+# from drone.drone_image_check import start_image_check
+from drone_image_check import start_image_check
 
 from server.image_processing.orthophoto_generation.Orthophoto import rectify
 # from server.image_processing.orthophoto_generation.Orthophoto import rectify_detected_bbox
 # from server.image_processing.orthophoto_generation.EoData import convertCoordinateSystem_tm2latlon
-# import socket
+import socket
 import cv2
 import numpy as np
 
 # socket for sending
-# TCP_IP = '192.168.0.24'
-# TCP_PORT = 8080
+TCP_IP = '192.168.0.24'
+TCP_PORT = 8080
 
-# s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-#
-# s.connect((TCP_IP, TCP_PORT))#
-# print('connected!')
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+s.connect((TCP_IP, TCP_PORT))#
+print('connected!')
 
 
 # Initialize flask
@@ -133,27 +134,27 @@ def ldm_upload(project_id_str):
         # # IPOD chain 3: Object detection
         # # TODO: Implement object detection functions
         #
-        # imgencode = cv2.imread(project_path + '/' + fname_dict['img_rectified'])
-        # print(project_path + '/' + fname_dict['img_rectified'])
-        # hei = imgencode.shape[0]
-        # wid = imgencode.shape[1]
-        #
-        # stringData = imgencode.tostring()
-        #
-        # s.send(str(wid).encode().ljust(16))
-        # s.send(str(hei).encode().ljust(16))
-        # s.send(stringData)
-        # print("start sending")
-        #
-        # # Receiving Bbox info
-        # data_len = s.recv(16)
-        #
-        # x1 = json.loads(s.recv(int(data_len)))
-        # y1 = json.loads(s.recv(int(data_len)))
-        # x2 = json.loads(s.recv(int(data_len)))
-        # y2 = json.loads(s.recv(int(data_len)))
-        #
-        # print("BBox info received!!!!!")
+        imgencode = cv2.imread(project_path + '/' + fname_dict['img_rectified'])
+        print(project_path + '/' + fname_dict['img_rectified'])
+        hei = imgencode.shape[0]
+        wid = imgencode.shape[1]
+
+        stringData = imgencode.tostring()
+
+        s.send(str(wid).encode().ljust(16))
+        s.send(str(hei).encode().ljust(16))
+        s.send(stringData)
+        print("start sending")
+
+        # Receiving Bbox info
+        data_len = s.recv(16)
+
+        x1 = json.loads(s.recv(int(data_len)))
+        y1 = json.loads(s.recv(int(data_len)))
+        x2 = json.loads(s.recv(int(data_len)))
+        y2 = json.loads(s.recv(int(data_len)))
+
+        print("BBox info received!!!!!")
         #
         # for i in range(len(x1)):
         #     bbox = [x1[i], y1[i], x2[i], y2[i]]

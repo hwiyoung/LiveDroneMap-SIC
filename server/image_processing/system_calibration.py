@@ -16,7 +16,8 @@ def A2R_RPY(r, p, y):
     Rot_y = np.array([[math.cos(ph), 0, math.sin(ph)], [0, 1, 0], [-math.sin(ph), 0, math.cos(ph)]], dtype=float)
     Rot_z = np.array([[math.cos(kp), -math.sin(kp), 0], [math.sin(kp), math.cos(kp), 0], [0, 0, 1]], dtype=float)
 
-    Rot_rpy = np.linalg.multi_dot([Rot_y, Rot_z, Rot_x])
+    # Rot_rpy = np.linalg.multi_dot([Rot_y, Rot_z, Rot_x])
+    Rot_rpy = np.linalg.multi_dot([Rot_z, Rot_x, Rot_y])
     return Rot_rpy
 
 
