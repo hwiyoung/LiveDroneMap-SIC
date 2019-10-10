@@ -27,7 +27,7 @@ TCP_PORT = 8080
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-s.connect((TCP_IP, TCP_PORT))#
+s.connect((TCP_IP, TCP_PORT))
 print('connected!')
 
 
