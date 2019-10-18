@@ -292,7 +292,7 @@ def webodm_start_processing(project_id_str):
 
 
 if __name__ == '__main__':
-    app.run(threaded=True, host='0.0.0.0', port=8080)
+    app.run(threaded=True, host='0.0.0.0', port=30000)
     # socket.close()
 
 
