@@ -44,7 +44,7 @@ mago3d = Mago3D(
 )
 
 from server.my_drones import FlirDuoProR_optical
-my_drone = FlirDuoProR_optical(pre_calibrated=True)
+my_drone = FlirDuoProR_optical(pre_calibrated=False)
 
 
 def allowed_file(fname):
@@ -120,7 +120,7 @@ def ldm_upload(project_id_str):
             parsed_eo[5] = OPK[2]
 
         # IPOD chain 2: Individual ortho-image generation
-        fname_dict['img_rectified'] = fname_dict['img'].split('.')[0] + '.tif'
+        fname_dict['img_rectified'] = fname_dict['img'].split('.')[0][:-3] + '.tif'
         bbox_wkt = rectify(
             project_path=project_path,
             img_fname=fname_dict['img'],
@@ -129,93 +129,96 @@ def ldm_upload(project_id_str):
             ground_height=my_drone.ipod_params['ground_height'],
             sensor_width=my_drone.ipod_params['sensor_width']
         )
-        detected_objects=[]
-        # # IPOD chain 3: Object detection
-        # # TODO: Implement object detection functions
-        #
-        # imgencode = cv2.imread(project_path + '/' + fname_dict['img_rectified'])
-        # print(project_path + '/' + fname_dict['img_rectified'])
-        # hei = imgencode.shape[0]
-        # wid = imgencode.shape[1]
-        #
-        # stringData = imgencode.tostring()
-        #
-        # s.send(str(wid).encode().ljust(16))
-        # s.send(str(hei).encode().ljust(16))
-        # s.send(stringData)
-        # print("start sending")
-        #
-        # # Receiving Bbox info
-        # data_len = s.recv(16)
-        #
-        # x1 = json.loads(s.recv(int(data_len)))
-        # y1 = json.loads(s.recv(int(data_len)))
-        # x2 = json.loads(s.recv(int(data_len)))
-        # y2 = json.loads(s.recv(int(data_len)))
-        #
-        # print("BBox info received!!!!!")
-        #
-        # for i in range(len(x1)):
-        #     bbox = [x1[i], y1[i], x2[i], y2[i]]
-        #
-        #     bbox_wkt = rectify_detected_bbox(
-        #     project_path=project_path,
-        #     img_fname=fname_dict['img'],
-        #     Bbox=bbox,
-        #     img_rectified_fname=fname_dict['img_rectified'],
-        #     eo=parsed_eo,
-        #     ground_height=my_drone.ipod_params['ground_height'],
-        #     sensor_width=my_drone.ipod_params['sensor_width']
-        #     )
-        #
-        #     Bbox_edge1 = convertCoordinateSystem_tm2latlon([bbox_wkt[0][0], bbox_wkt[2][0]])
-        #     Bbox_edge2 = convertCoordinateSystem_tm2latlon([bbox_wkt[1][0], bbox_wkt[2][0]])
-        #     Bbox_edge3 = convertCoordinateSystem_tm2latlon([bbox_wkt[1][0], bbox_wkt[3][0]])
-        #     Bbox_edge4 = convertCoordinateSystem_tm2latlon([bbox_wkt[0][0], bbox_wkt[3][0]])
-        #
-        #     detected_objects_single = {
-        #             "number": 0,
-        #             "ortho_detected_object_id": None,
-        #             "drone_project_id": None,
-        #             "ortho_image_id": None,
-        #             "user_id": None,
-        #             "object_type": "0",
-        #             "geometry": "POINT (%f %f)" % ((Bbox_edge3[0]+Bbox_edge1[0])/2,(Bbox_edge3[1]+Bbox_edge1[1])/2),
-        #             "detected_date": "20180929203800",
-        #             "bounding_box_geometry": "POLYGON ((%f %f, %f %f, %f %f, %f %f, %f %f))"
-        #                                      % (Bbox_edge1[0], Bbox_edge1[1], Bbox_edge2[0], Bbox_edge2[1], Bbox_edge3[0],Bbox_edge3[1],  Bbox_edge4[0], Bbox_edge4[1],Bbox_edge1[0], Bbox_edge1[1]),
-        #             "major_axis": None, #30,
-        #             "minor_axis": None, #50,
-        #             "orientation": None, #260,
-        #             "bounding_box_area": None, #150,
-        #             "length": None, #30,
-        #             "speed": None, #12,
-        #             "insert_date": None}
-        #
-        #     detected_objects.append(detected_objects_single)
+        if bbox_wkt is not None:
+            detected_objects=[]
+            # # IPOD chain 3: Object detection
+            # # TODO: Implement object detection functions
+            #
+            # imgencode = cv2.imread(project_path + '/' + fname_dict['img_rectified'])
+            # print(project_path + '/' + fname_dict['img_rectified'])
+            # hei = imgencode.shape[0]
+            # wid = imgencode.shape[1]
+            #
+            # stringData = imgencode.tostring()
+            #
+            # s.send(str(wid).encode().ljust(16))
+            # s.send(str(hei).encode().ljust(16))
+            # s.send(stringData)
+            # print("start sending")
+            #
+            # # Receiving Bbox info
+            # data_len = s.recv(16)
+            #
+            # x1 = json.loads(s.recv(int(data_len)))
+            # y1 = json.loads(s.recv(int(data_len)))
+            # x2 = json.loads(s.recv(int(data_len)))
+            # y2 = json.loads(s.recv(int(data_len)))
+            #
+            # print("BBox info received!!!!!")
+            #
+            # for i in range(len(x1)):
+            #     bbox = [x1[i], y1[i], x2[i], y2[i]]
+            #
+            #     bbox_wkt = rectify_detected_bbox(
+            #     project_path=project_path,
+            #     img_fname=fname_dict['img'],
+            #     Bbox=bbox,
+            #     img_rectified_fname=fname_dict['img_rectified'],
+            #     eo=parsed_eo,
+            #     ground_height=my_drone.ipod_params['ground_height'],
+            #     sensor_width=my_drone.ipod_params['sensor_width']
+            #     )
+            #
+            #     Bbox_edge1 = convertCoordinateSystem_tm2latlon([bbox_wkt[0][0], bbox_wkt[2][0]])
+            #     Bbox_edge2 = convertCoordinateSystem_tm2latlon([bbox_wkt[1][0], bbox_wkt[2][0]])
+            #     Bbox_edge3 = convertCoordinateSystem_tm2latlon([bbox_wkt[1][0], bbox_wkt[3][0]])
+            #     Bbox_edge4 = convertCoordinateSystem_tm2latlon([bbox_wkt[0][0], bbox_wkt[3][0]])
+            #
+            #     detected_objects_single = {
+            #             "number": 0,
+            #             "ortho_detected_object_id": None,
+            #             "drone_project_id": None,
+            #             "ortho_image_id": None,
+            #             "user_id": None,
+            #             "object_type": "0",
+            #             "geometry": "POINT (%f %f)" % ((Bbox_edge3[0]+Bbox_edge1[0])/2,(Bbox_edge3[1]+Bbox_edge1[1])/2),
+            #             "detected_date": "20180929203800",
+            #             "bounding_box_geometry": "POLYGON ((%f %f, %f %f, %f %f, %f %f, %f %f))"
+            #                                      % (Bbox_edge1[0], Bbox_edge1[1], Bbox_edge2[0], Bbox_edge2[1], Bbox_edge3[0],Bbox_edge3[1],  Bbox_edge4[0], Bbox_edge4[1],Bbox_edge1[0], Bbox_edge1[1]),
+            #             "major_axis": None, #30,
+            #             "minor_axis": None, #50,
+            #             "orientation": None, #260,
+            #             "bounding_box_area": None, #150,
+            #             "length": None, #30,
+            #             "speed": None, #12,
+            #             "insert_date": None}
+            #
+            #     detected_objects.append(detected_objects_single)
 
-        # Generate metadata for Mago3D
-        img_metadata = create_img_metadata(
-            drone_project_id=int(project_id_str),
-            data_type='0',
-            file_name=fname_dict['img_rectified'],
-            detected_objects=detected_objects,
-            drone_id='0',
-            drone_name='my_drone',
-            parsed_eo=parsed_eo
-        )
+            # Generate metadata for Mago3D
+            img_metadata = create_img_metadata(
+                drone_project_id=int(project_id_str),
+                data_type='0',
+                file_name=fname_dict['img_rectified'],
+                detected_objects=detected_objects,
+                drone_id='0',
+                drone_name='my_drone',
+                parsed_eo=parsed_eo
+            )
 
-        #print(img_metadata)
+            #print(img_metadata)
 
-        # Mago3D에 전송
-        res = mago3d.upload(
-            img_rectified_path=os.path.join(project_path, fname_dict['img_rectified']),
-            img_metadata=img_metadata
-        )
+            # Mago3D에 전송
+            res = mago3d.upload(
+                img_rectified_path=os.path.join(project_path, fname_dict['img_rectified']),
+                img_metadata=img_metadata
+            )
 
-        print(res.text)
+            print(res.text)
 
-        return 'Image upload and IPOD chain complete'
+            return 'Image upload and IPOD chain complete'
+        else:
+            pass
 
 
 @app.route('/check/drone_polling')

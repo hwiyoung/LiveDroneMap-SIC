@@ -1,6 +1,7 @@
 import cv2
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
+import pyexiv2
 
 def getExif(path):
     src_image = Image.open(path)
@@ -12,9 +13,30 @@ def getExif(path):
     focal_length = focal_length * pow(10, -3) # unit: m
 
     # Orientation
-    orientation = info[274]
+    # orientation = info[274]
+    orientation = 0
 
     return focal_length, orientation
+
+def exiv2(path):
+    metadata = pyexiv2.ImageMetadata(path)
+    metadata.read()
+
+    # Focal length
+    try:
+        focalLength = metadata['Exif.Photo.FocalLength']
+        focal_length = focalLength.value
+        focal_length = focal_length * pow(10, -3)   # unit: m
+    except:
+        focalLength = metadata['Exif.Image.FocalLength'].raw_value
+        focal_length = int(focalLength[0])
+        focal_length = focal_length * pow(10, -3)  # unit: m
+
+    # Orientation
+    orientation = 0
+
+    return focal_length, orientation
+
 
 def restoreOrientation(image, orientation):
     if orientation == 8:

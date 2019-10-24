@@ -5,7 +5,7 @@ import time
 from osgeo import ogr
 from osgeo import gdal
 from osgeo import osr
-from server.image_processing.orthophoto_generation.ExifData import getExif, restoreOrientation
+from server.image_processing.orthophoto_generation.ExifData import exiv2, restoreOrientation
 from server.image_processing.orthophoto_generation.EoData import convertCoordinateSystem, Rot3D
 from server.image_processing.orthophoto_generation.Boundary import boundary
 from server.image_processing.orthophoto_generation.BackprojectionResample import projectedCoord, backProjection, \
@@ -44,7 +44,7 @@ def rectify(project_path, img_fname, img_rectified_fname, eo, ground_height, sen
     image = cv2.imread(img_path)
 
     # 0. Extract EXIF data from a image
-    focal_length, orientation = getExif(img_path)  # unit: m
+    focal_length, orientation = exiv2(img_path)  # unit: m
 
     # 1. Restore the image based on orientation information
     restored_image = restoreOrientation(image, orientation)
@@ -61,7 +61,7 @@ def rectify(project_path, img_fname, img_rectified_fname, eo, ground_height, sen
     read_time = end_time - start_time
 
     print('Read EOP - ' + img_fname)
-    print('Northing | Easting | Height | Omega | Phi | Kappa')
+    print('Easting | Northing | Height | Omega | Phi | Kappa')
     converted_eo = convertCoordinateSystem(eo)
     print(converted_eo)
     R = Rot3D(converted_eo)
@@ -88,32 +88,36 @@ def rectify(project_path, img_fname, img_rectified_fname, eo, ground_height, sen
     print('backProjection')
     start_time = time.time()
     backProj_coords = backProjection(proj_coords, R, focal_length, pixel_size, image_size)
-    print("--- %s seconds ---" % (time.time() - start_time))
 
-    print('resample')
-    start_time = time.time()
-    b, g, r, a = resample(backProj_coords, boundary_rows, boundary_cols, image)
-    print("--- %s seconds ---" % (time.time() - start_time))
+    if backProj_coords is not None:
+        print("--- %s seconds ---" % (time.time() - start_time))
 
-    print('Save the image in GeoTiff')
-    start_time = time.time()
-    img_rectified_fname_kctm = img_rectified_fname.split('.')[0] + '_kctm.tif'
-    dst = os.path.join(project_path, img_rectified_fname_kctm)
-    createGeoTiff(b, g, r, a, bbox, gsd, boundary_rows, boundary_cols, dst)
+        print('resample')
+        start_time = time.time()
+        b, g, r, a = resample(backProj_coords, boundary_rows, boundary_cols, image)
+        print("--- %s seconds ---" % (time.time() - start_time))
 
-    # GDAL warp to reproject from EPSG:5186 to EPSG:4326
-    gdal.Warp(
-        os.path.join(project_path, img_rectified_fname),
-        gdal.Open(os.path.join(project_path, img_rectified_fname_kctm)),
-        format='GTiff',
-        srcSRS='EPSG:5186',
-        dstSRS='EPSG:4326'
-    )
+        print('Save the image in GeoTiff')
+        start_time = time.time()
+        img_rectified_fname_kctm = img_rectified_fname.split('.')[0] + '_kctm.tif'
+        dst = os.path.join(project_path, img_rectified_fname_kctm)
+        createGeoTiff(b, g, r, a, bbox, gsd, boundary_rows, boundary_cols, dst)
 
-    print("--- %s seconds ---" % (time.time() - start_time))
+        # GDAL warp to reproject from EPSG:5186 to EPSG:4326
+        gdal.Warp(
+            os.path.join(project_path, img_rectified_fname),
+            gdal.Open(os.path.join(project_path, img_rectified_fname_kctm)),
+            format='GTiff',
+            srcSRS='EPSG:5186',
+            dstSRS='EPSG:4326'
+        )
 
-    print('*** Processing time per each image')
-    print("--- %s seconds ---" % (time.time() - start_time + read_time))
+        print("--- %s seconds ---" % (time.time() - start_time))
 
-    bbox_wkt = export_bbox_to_wkt(bbox)
-    return bbox_wkt
+        print('*** Processing time per each image')
+        print("--- %s seconds ---" % (time.time() - start_time + read_time))
+
+        bbox_wkt = export_bbox_to_wkt(bbox)
+        return bbox_wkt
+    else:
+        return None
