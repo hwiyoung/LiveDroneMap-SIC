@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request
 from werkzeug.utils import secure_filename
 
-from server import config_flask
+from config import config_flask
 from server.image_processing.img_metadata_generation import create_img_metadata
 from clients.webodm import WebODM
 from clients.mago3d import Mago3D
@@ -17,9 +17,6 @@ from server.image_processing.orthophoto_generation.Orthophoto import rectify
 from server.image_processing.system_calibration import calibrate
 # from server.image_processing.orthophoto_generation.Orthophoto import rectify_detected_bbox
 # from server.image_processing.orthophoto_generation.EoData import convertCoordinateSystem_tm2latlon
-import socket
-import cv2
-import numpy as np
 
 # # socket for sending
 # TCP_IP = '192.168.0.24'
@@ -46,11 +43,9 @@ mago3d = Mago3D(
     api_key=app.config['MAGO3D_CONFIG']['api_key']
 )
 
-#from server.my_drones import TiLabETRI
-#my_drone = TiLabETRI(pre_calibrated=True)
+from server.my_drones import FlirDuoProR_optical
+my_drone = FlirDuoProR_optical(pre_calibrated=True)
 
-from server.my_drones import FlirDuoProR
-my_drone = FlirDuoProR(pre_calibrated=True)
 
 def allowed_file(fname):
     return '.' in fname and fname.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
@@ -69,12 +64,15 @@ def project():
     if request.method == 'POST':
         # Create a new project on Mago3D
         res = mago3d.create_project(request.json['name'], request.json['project_type'], request.json['shooting_area'])
+
         # Mago3D assigns a new project ID to LDM
         project_id = str(res.json()['droneProjectId'])
+
         # Using the assigned ID, ldm makes a new folder to projects directory
         new_project_dir = os.path.join(app.config['UPLOAD_FOLDER'], project_id)
         os.mkdir(new_project_dir)
         os.mkdir(os.path.join(new_project_dir, 'rectified'))
+
         # LDM returns the project ID that Mago3D assigned
         return project_id
 
@@ -115,9 +113,7 @@ def ldm_upload(project_id_str):
 
         # IPOD chain 1: System calibration
         parsed_eo = my_drone.preprocess_eo_file(os.path.join(project_path, fname_dict['eo']))
-        if my_drone.pre_calibrated:
-            pass
-        else:
+        if not my_drone.pre_calibrated:
             OPK = calibrate(parsed_eo[3], parsed_eo[4], parsed_eo[5], my_drone.ipod_params["R_CB"])
             parsed_eo[3] = OPK[0]
             parsed_eo[4] = OPK[1]
@@ -292,7 +288,7 @@ def webodm_start_processing(project_id_str):
 
 
 if __name__ == '__main__':
-    app.run(threaded=True, host='0.0.0.0', port=30000)
+    app.run(threaded=True, host='0.0.0.0', port=30005)
     # socket.close()
 
 

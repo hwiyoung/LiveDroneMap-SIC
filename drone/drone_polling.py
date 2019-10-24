@@ -1,5 +1,5 @@
 import requests
-from drone.config import BaseConfig as Config
+from config.config_watchdog import BaseConfig as Config
 from drone.drone_image_check import start_image_check
 
 while True:

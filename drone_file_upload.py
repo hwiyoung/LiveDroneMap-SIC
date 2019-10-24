@@ -1,8 +1,7 @@
 import time
-import os
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-from drone.config import BaseConfig as Config
+from config.config_watchdog import BaseConfig as Config
 from clients.ldm_client import Livedronemap
 
 image_list = []
