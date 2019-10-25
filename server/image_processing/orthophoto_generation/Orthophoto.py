@@ -6,7 +6,7 @@ from osgeo import ogr
 from osgeo import gdal
 from osgeo import osr
 from server.image_processing.orthophoto_generation.ExifData import exiv2, restoreOrientation
-from server.image_processing.orthophoto_generation.EoData import convertCoordinateSystem, Rot3D
+from server.image_processing.orthophoto_generation.EoData import latlon2tmcentral, Rot3D
 from server.image_processing.orthophoto_generation.Boundary import boundary
 from server.image_processing.orthophoto_generation.BackprojectionResample import projectedCoord, backProjection, \
     resample, createGeoTiff
@@ -62,7 +62,7 @@ def rectify(project_path, img_fname, img_rectified_fname, eo, ground_height, sen
 
     print('Read EOP - ' + img_fname)
     print('Easting | Northing | Height | Omega | Phi | Kappa')
-    converted_eo = convertCoordinateSystem(eo)
+    converted_eo = latlon2tmcentral(eo)
     print(converted_eo)
     R = Rot3D(converted_eo)
 

@@ -23,11 +23,6 @@ with pysftp.Connection(host=myHostname, username=myUsername, password=myPassword
     fname_list = os.listdir(local_path)
     fname_list.sort()
 
-    # print(fname_list[2])
-    #
-    # sftp.put(local_path + '/' + fname_list[2], remote_path + '/' + fname_list[2])
-    # time.sleep(5)
-
     for fname in tqdm(fname_list):
         sftp.put(local_path + '/' + fname, remote_path + '/' + fname)
         time.sleep(5)
