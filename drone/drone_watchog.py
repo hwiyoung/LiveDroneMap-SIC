@@ -54,20 +54,20 @@ class Handler(FileSystemEventHandler):
                 # eo_dict = extract_eo(file_name + '.' + Config.IMAGE_FILE_EXT, Config.CAMERA_MANUFACTURER)
                 eo_dict = extract_eo(event.src_path, Config.CAMERA_MANUFACTURER)
                 with open(file_name + '.' + Config.EO_FILE_EXT, 'w') as f:
-                    eo_file_data = file_name.split('/')[-1] + '.' + Config.IMAGE_FILE_EXT + '\t' + \
-                                   str(eo_dict['longitude']) + '\t' + \
-                                   str(eo_dict['latitude']) + '\t' + \
-                                   str(eo_dict['altitude']) + '\t' + \
-                                   str(eo_dict['yaw']) + '\t' + \
-                                   str(eo_dict['pitch']) + '\t' + \
-                                   str(eo_dict['roll']) + '\t'
                     # eo_file_data = file_name.split('/')[-1] + '.' + Config.IMAGE_FILE_EXT + '\t' + \
                     #                str(eo_dict['longitude']) + '\t' + \
                     #                str(eo_dict['latitude']) + '\t' + \
                     #                str(eo_dict['altitude']) + '\t' + \
-                    #                str(eo_dict['roll']) + '\t' + \
+                    #                str(eo_dict['yaw']) + '\t' + \
                     #                str(eo_dict['pitch']) + '\t' + \
-                    #                str(eo_dict['yaw']) + '\t'
+                    #                str(eo_dict['roll']) + '\t'
+                    eo_file_data = file_name.split('/')[-1] + '.' + Config.IMAGE_FILE_EXT + '\t' + \
+                                   str(eo_dict['longitude']) + '\t' + \
+                                   str(eo_dict['latitude']) + '\t' + \
+                                   str(eo_dict['altitude']) + '\t' + \
+                                   str(eo_dict['roll']) + '\t' + \
+                                   str(eo_dict['pitch']) + '\t' + \
+                                   str(eo_dict['yaw']) + '\t'
                     print('EO data:')
                     print(eo_file_data)
                     f.write(eo_file_data)

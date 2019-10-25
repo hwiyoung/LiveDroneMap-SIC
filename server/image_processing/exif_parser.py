@@ -40,6 +40,15 @@ def extract_eo(fname, camera_manufacturer):
         pitch = float(fname_split[8])
         yaw = float(fname_split[9][:-4])
 
+    elif camera_manufacturer == 'AIMIFY/SONY':
+        fname_split = fname.split('/')[-1].split('_')
+        latitude = float(fname_split[2])
+        longitude = float(fname_split[3])
+        altitude = float(fname_split[4])
+        roll = float(fname_split[5])
+        pitch = float(fname_split[6])
+        yaw = float(fname_split[7][:-4])
+
     result = {
         'longitude': longitude,
         'latitude': latitude,

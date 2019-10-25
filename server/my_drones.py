@@ -146,8 +146,8 @@ class FlirDuoProR_optical(BaseDrone):
             eo_path,
             delimiter='\t',
             dtype={
-                # 'names': ('Image', 'Longitude', 'Latitude', 'Altitude', 'Roll', 'Pitch', 'Yaw'),
-                'names': ('Image', 'Longitude', 'Latitude', 'Altitude', 'Yaw', 'Pitch', 'Roll'),
+                'names': ('Image', 'Longitude', 'Latitude', 'Altitude', 'Roll', 'Pitch', 'Yaw'),
+                # 'names': ('Image', 'Longitude', 'Latitude', 'Altitude', 'Yaw', 'Pitch', 'Roll'),
                 'formats': ('U22', '<f8', '<f8', '<f8', '<f8', '<f8', '<f8')
             }
         )
@@ -172,6 +172,39 @@ class FlirDuoProR_thermal(BaseDrone):
                 [[0.996270284462972, -0.0845707313471919, -0.0171263450703691],
                  [0.0857291664934870, 0.992672993233668, 0.0851518556277114],
                  [0.00979950551814992, -0.0863024907167326, 0.996220783655756]], dtype=float)   # Must check
+        }
+        self.pre_calibrated = pre_calibrated
+
+    def preprocess_eo_file(self, eo_path):
+        eo_line = np.genfromtxt(
+            eo_path,
+            delimiter='\t',
+            dtype={
+                'names': ('Image', 'Longitude', 'Latitude', 'Altitude', 'Roll', 'Pitch', 'Yaw'),
+                'formats': ('U22', '<f8', '<f8', '<f8', '<f8', '<f8', '<f8')
+            }
+        )
+
+        eo_line['Roll'] = eo_line['Roll'] * math.pi / 180
+        eo_line['Pitch'] = eo_line['Pitch'] * math.pi / 180
+        eo_line['Yaw'] = eo_line['Yaw'] * math.pi / 180
+
+        parsed_eo = [float(eo_line['Longitude']), float(eo_line['Latitude']), float(eo_line['Altitude']),
+                     float(eo_line['Roll']), float(eo_line['Pitch']), float(eo_line['Yaw'])]
+
+        return parsed_eo
+
+class SONY_ILCE_QX1(BaseDrone):
+    def __init__(self, pre_calibrated=False):
+        self.ipod_params = {
+            "sensor_width": 23.5,  # mm
+            'focal_length': 0.020,  # m
+            'gsd': 'auto',
+            'ground_height': 0.0,   # m
+            "R_CB": np.array(
+                [[0.994367334553110, 0.0724297138251540, -0.0773791995884510],
+                 [-0.0736697531217240, 0.997194145601333, -0.0132892232057198],
+                 [0.0761995501871716, 0.0189148759877907, 0.996913163729740]], dtype=float)   # Must check
         }
         self.pre_calibrated = pre_calibrated
 

@@ -43,9 +43,11 @@ mago3d = Mago3D(
     api_key=app.config['MAGO3D_CONFIG']['api_key']
 )
 
-from server.my_drones import FlirDuoProR_optical
-my_drone = FlirDuoProR_optical(pre_calibrated=False)
+# from server.my_drones import FlirDuoProR_optical
+# my_drone = FlirDuoProR_optical(pre_calibrated=False)
 
+from server.my_drones import SONY_ILCE_QX1
+my_drone = SONY_ILCE_QX1(pre_calibrated=False)
 
 def allowed_file(fname):
     return '.' in fname and fname.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
@@ -118,6 +120,10 @@ def ldm_upload(project_id_str):
             parsed_eo[3] = OPK[0]
             parsed_eo[4] = OPK[1]
             parsed_eo[5] = OPK[2]
+
+        if OPK[0] > abs(0.175) or OPK[1] > abs(0.175):
+            print('Too much omega/phi will kill you')
+            return 'Too much omega/phi will kill you'
 
         # IPOD chain 2: Individual ortho-image generation
         fname_dict['img_rectified'] = fname_dict['img'].split('.')[0][:-3] + '.tif'
