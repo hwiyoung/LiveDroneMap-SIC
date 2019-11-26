@@ -1,7 +1,7 @@
 import os
 import pyexiv2
 
-for root, dirs, files in os.walk('/mnt/AIMIFY/live_image/20191010/sony/not_ocean'):
+for root, dirs, files in os.walk('/Sandbox_forest'):
     for file in files:
         filename = os.path.splitext(file)[0]
         extension = os.path.splitext(file)[1]

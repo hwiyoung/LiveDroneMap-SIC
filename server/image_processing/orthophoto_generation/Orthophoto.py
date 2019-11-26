@@ -5,12 +5,26 @@ import time
 from osgeo import ogr
 from osgeo import gdal
 from osgeo import osr
-from server.image_processing.orthophoto_generation.ExifData import exiv2, restoreOrientation
-from server.image_processing.orthophoto_generation.EoData import convertCoordinateSystem, Rot3D
+from server.image_processing.orthophoto_generation.ExifData import exiv2, restoreOrientation, getExif
+from server.image_processing.orthophoto_generation.EoData import latlon2tmcentral, Rot3D
 from server.image_processing.orthophoto_generation.Boundary import boundary
 from server.image_processing.orthophoto_generation.BackprojectionResample import projectedCoord, backProjection, \
     resample, createGeoTiff
+import matplotlib.pyplot as plt
 
+def highlighting_bbox(image,bbox):
+    idx = 0
+    blue = (255, 0, 0)
+    green = (0, 255, 0)
+    red = (0, 0, 255)
+    black = (0, 0, 0)
+    object_color = {1: blue, 2: green, 3: black}
+
+    for object_id in bbox[4]:
+        image = cv2.rectangle(image, (bbox[0][idx] - 5, bbox[1][idx] - 5), (bbox[2][idx] + 5, bbox[3][idx] + 5),
+                              object_color[object_id], 5)
+        idx += 1
+    return image
 
 def export_bbox_to_wkt(bbox):
     ring = ogr.Geometry(ogr.wkbLinearRing)
@@ -24,7 +38,7 @@ def export_bbox_to_wkt(bbox):
     return wkt
 
 
-def rectify(project_path, img_fname, img_rectified_fname, eo, ground_height, sensor_width, gsd='auto'):
+def rectify(project_path, img_fname, img_rectified_fname, eo, ground_height, sensor_width, gsd='auto', bbox=[0,0,0,0,0]):
     """
     In order to generate individual ortho-image, this function rectifies a given drone image on a reference plane.
     :param img_fname:
@@ -41,13 +55,21 @@ def rectify(project_path, img_fname, img_rectified_fname, eo, ground_height, sen
     start_time = time.time()
 
     print('Read the image - ' + img_fname)
-    image = cv2.imread(img_path)
 
+    image = cv2.imread(img_path)
+    # Highlighting Bounding Box on livedronemap
+    image = highlighting_bbox(image, bbox)
     # 0. Extract EXIF data from a image
-    focal_length, orientation = exiv2(img_path)  # unit: m
+    focal_length, orientation = getExif(img_path)  # unit: m
 
     # 1. Restore the image based on orientation information
     restored_image = restoreOrientation(image, orientation)
+    restored_image = image
+
+    # plt.imshow(restored_image)
+    # plt.show()
+
+    cv2.imwrite('/home/innopam-ldm/PycharmProjects/livedronemap/restored.jpg', restored_image)
 
     image_rows = restored_image.shape[0]
     image_cols = restored_image.shape[1]
@@ -62,7 +84,7 @@ def rectify(project_path, img_fname, img_rectified_fname, eo, ground_height, sen
 
     print('Read EOP - ' + img_fname)
     print('Easting | Northing | Height | Omega | Phi | Kappa')
-    converted_eo = convertCoordinateSystem(eo)
+    converted_eo = latlon2tmcentral(eo)
     print(converted_eo)
     R = Rot3D(converted_eo)
 

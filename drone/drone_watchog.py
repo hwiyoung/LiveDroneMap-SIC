@@ -4,6 +4,8 @@ from watchdog.events import FileSystemEventHandler
 from config.config_watchdog import BaseConfig as Config
 from clients.ldm_client import Livedronemap
 from server.image_processing.exif_parser import extract_eo
+import os
+from watchdog.observers.polling import PollingObserver
 
 image_list = []
 eo_list = []
@@ -23,7 +25,8 @@ def upload_data(image_fname, eo_fname):
 
 class Watcher:
     def __init__(self, directory_to_watch):
-        self.observer = Observer()
+        # self.observer = Observer()
+        self.observer = PollingObserver()
         self.directory_to_watch = directory_to_watch
 
     def run(self):
@@ -54,20 +57,20 @@ class Handler(FileSystemEventHandler):
                 # eo_dict = extract_eo(file_name + '.' + Config.IMAGE_FILE_EXT, Config.CAMERA_MANUFACTURER)
                 eo_dict = extract_eo(event.src_path, Config.CAMERA_MANUFACTURER)
                 with open(file_name + '.' + Config.EO_FILE_EXT, 'w') as f:
-                    eo_file_data = file_name.split('/')[-1] + '.' + Config.IMAGE_FILE_EXT + '\t' + \
-                                   str(eo_dict['longitude']) + '\t' + \
-                                   str(eo_dict['latitude']) + '\t' + \
-                                   str(eo_dict['altitude']) + '\t' + \
-                                   str(eo_dict['yaw']) + '\t' + \
-                                   str(eo_dict['pitch']) + '\t' + \
-                                   str(eo_dict['roll']) + '\t'
                     # eo_file_data = file_name.split('/')[-1] + '.' + Config.IMAGE_FILE_EXT + '\t' + \
                     #                str(eo_dict['longitude']) + '\t' + \
                     #                str(eo_dict['latitude']) + '\t' + \
                     #                str(eo_dict['altitude']) + '\t' + \
-                    #                str(eo_dict['roll']) + '\t' + \
+                    #                str(eo_dict['yaw']) + '\t' + \
                     #                str(eo_dict['pitch']) + '\t' + \
-                    #                str(eo_dict['yaw']) + '\t'
+                    #                str(eo_dict['roll']) + '\t'
+                    eo_file_data = file_name.split('/')[-1] + '.' + Config.IMAGE_FILE_EXT + '\t' + \
+                                   str(eo_dict['longitude']) + '\t' + \
+                                   str(eo_dict['latitude']) + '\t' + \
+                                   str(eo_dict['altitude']) + '\t' + \
+                                   str(eo_dict['roll']) + '\t' + \
+                                   str(eo_dict['pitch']) + '\t' + \
+                                   str(eo_dict['yaw']) + '\t'
                     print('EO data:')
                     print(eo_file_data)
                     f.write(eo_file_data)
@@ -88,5 +91,9 @@ class Handler(FileSystemEventHandler):
 
 
 if __name__ == '__main__':
+
+    if os.path.exists('drone/downloads'):
+        for file in os.scandir('drone/downloads'):
+            os.remove(file)
     w = Watcher(directory_to_watch=Config.DIRECTORY_TO_WATCH)
     w.run()

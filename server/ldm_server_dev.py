@@ -1,6 +1,9 @@
 import json
 import os
 import time
+import cv2
+import socket
+import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 
 from flask import Flask, request
@@ -15,18 +18,23 @@ from drone_image_check import start_image_check
 
 from server.image_processing.orthophoto_generation.Orthophoto import rectify
 from server.image_processing.system_calibration import calibrate
-# from server.image_processing.orthophoto_generation.Orthophoto import rectify_detected_bbox
-# from server.image_processing.orthophoto_generation.EoData import convertCoordinateSystem_tm2latlon
+
+# Convert pixel bbox to world bbox
+from server.image_processing.orthophoto_generation.Boundary import pcs2ccs, projection
+from server.image_processing.orthophoto_generation.EoData import Rot3D, latlon2tmcentral, tmcentral2latlon
+from server.image_processing.orthophoto_generation.ExifData import getExif, restoreOrientation
+
+import matplotlib.pyplot as plt
 
 # # socket for sending
-# TCP_IP = '192.168.0.24'
-# TCP_PORT = 8080
-#
-# s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-#
-# s.connect((TCP_IP, TCP_PORT))
-# print('connected!')
+TCP_IP = '192.168.0.24'
+TCP_PORT = 5010 #18080
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+s.connect((TCP_IP, TCP_PORT))
+print('connected!')
 
 
 # Initialize flask
@@ -43,9 +51,14 @@ mago3d = Mago3D(
     api_key=app.config['MAGO3D_CONFIG']['api_key']
 )
 
-from server.my_drones import FlirDuoProR_optical
-my_drone = FlirDuoProR_optical(pre_calibrated=False)
+# from server.my_drones import FlirDuoProR_optical
+# my_drone = FlirDuoProR_optical(pre_calibrated=True)
 
+from server.my_drones import SONY_ILCE_QX1
+my_drone = SONY_ILCE_QX1(pre_calibrated=False)
+
+# from server.my_drones import DJIMavic
+# my_drone = DJIMavic(pre_calibrated=True)
 
 def allowed_file(fname):
     return '.' in fname and fname.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
@@ -114,86 +127,126 @@ def ldm_upload(project_id_str):
         # IPOD chain 1: System calibration
         parsed_eo = my_drone.preprocess_eo_file(os.path.join(project_path, fname_dict['eo']))
         if not my_drone.pre_calibrated:
+            print('System calibration')
             OPK = calibrate(parsed_eo[3], parsed_eo[4], parsed_eo[5], my_drone.ipod_params["R_CB"])
             parsed_eo[3] = OPK[0]
             parsed_eo[4] = OPK[1]
             parsed_eo[5] = OPK[2]
 
-        # IPOD chain 2: Individual ortho-image generation
-        fname_dict['img_rectified'] = fname_dict['img'].split('.')[0][:-3] + '.tif'
-        bbox_wkt = rectify(
-            project_path=project_path,
-            img_fname=fname_dict['img'],
-            img_rectified_fname=fname_dict['img_rectified'],
-            eo=parsed_eo,
-            ground_height=my_drone.ipod_params['ground_height'],
-            sensor_width=my_drone.ipod_params['sensor_width']
-        )
+            if OPK[0] > abs(0.175) or OPK[1] > abs(0.175):
+                print('Too much omega/phi will kill you')
+                return 'Too much omega/phi will kill you'
+
+
+        bbox_wkt = 1
         if bbox_wkt is not None:
             detected_objects=[]
-            # # IPOD chain 3: Object detection
-            # # TODO: Implement object detection functions
+            # IPOD chain 3: Object detection
+            imgencode = cv2.imread(project_path + '/' + fname_dict['img'])
+
+            # # 0. Extract EXIF data from a image
+            # focal_length, orientation = getExif(project_path + '/' + fname_dict['img'])  # unit: m
             #
-            # imgencode = cv2.imread(project_path + '/' + fname_dict['img_rectified'])
-            # print(project_path + '/' + fname_dict['img_rectified'])
-            # hei = imgencode.shape[0]
-            # wid = imgencode.shape[1]
+            # # 1. Restore the image based on orientation information
+            # imgencode_1 = restoreOrientation(imgencode, orientation)
             #
-            # stringData = imgencode.tostring()
+            # # plt.imshow(imgencode_1)
+            # # plt.show()
             #
-            # s.send(str(wid).encode().ljust(16))
-            # s.send(str(hei).encode().ljust(16))
-            # s.send(stringData)
-            # print("start sending")
-            #
-            # # Receiving Bbox info
-            # data_len = s.recv(16)
-            #
-            # x1 = json.loads(s.recv(int(data_len)))
-            # y1 = json.loads(s.recv(int(data_len)))
-            # x2 = json.loads(s.recv(int(data_len)))
-            # y2 = json.loads(s.recv(int(data_len)))
-            #
-            # print("BBox info received!!!!!")
-            #
-            # for i in range(len(x1)):
-            #     bbox = [x1[i], y1[i], x2[i], y2[i]]
-            #
-            #     bbox_wkt = rectify_detected_bbox(
-            #     project_path=project_path,
-            #     img_fname=fname_dict['img'],
-            #     Bbox=bbox,
-            #     img_rectified_fname=fname_dict['img_rectified'],
-            #     eo=parsed_eo,
-            #     ground_height=my_drone.ipod_params['ground_height'],
-            #     sensor_width=my_drone.ipod_params['sensor_width']
-            #     )
-            #
-            #     Bbox_edge1 = convertCoordinateSystem_tm2latlon([bbox_wkt[0][0], bbox_wkt[2][0]])
-            #     Bbox_edge2 = convertCoordinateSystem_tm2latlon([bbox_wkt[1][0], bbox_wkt[2][0]])
-            #     Bbox_edge3 = convertCoordinateSystem_tm2latlon([bbox_wkt[1][0], bbox_wkt[3][0]])
-            #     Bbox_edge4 = convertCoordinateSystem_tm2latlon([bbox_wkt[0][0], bbox_wkt[3][0]])
-            #
-            #     detected_objects_single = {
-            #             "number": 0,
-            #             "ortho_detected_object_id": None,
-            #             "drone_project_id": None,
-            #             "ortho_image_id": None,
-            #             "user_id": None,
-            #             "object_type": "0",
-            #             "geometry": "POINT (%f %f)" % ((Bbox_edge3[0]+Bbox_edge1[0])/2,(Bbox_edge3[1]+Bbox_edge1[1])/2),
-            #             "detected_date": "20180929203800",
-            #             "bounding_box_geometry": "POLYGON ((%f %f, %f %f, %f %f, %f %f, %f %f))"
-            #                                      % (Bbox_edge1[0], Bbox_edge1[1], Bbox_edge2[0], Bbox_edge2[1], Bbox_edge3[0],Bbox_edge3[1],  Bbox_edge4[0], Bbox_edge4[1],Bbox_edge1[0], Bbox_edge1[1]),
-            #             "major_axis": None, #30,
-            #             "minor_axis": None, #50,
-            #             "orientation": None, #260,
-            #             "bounding_box_area": None, #150,
-            #             "length": None, #30,
-            #             "speed": None, #12,
-            #             "insert_date": None}
-            #
-            #     detected_objects.append(detected_objects_single)
+            # cv2.imwrite('/home/innopam-ldm/PycharmProjects/livedronemap/encode.jpg', imgencode_1)
+            imgencode_1 = imgencode
+
+            print(project_path + '/' + fname_dict['img'])
+            hei = imgencode_1.shape[0]
+            wid = imgencode_1.shape[1]
+            print("hei wid",hei,wid)
+            stringData = imgencode_1.tostring()
+
+            s.send(str(hei).encode().ljust(16))
+            s.send(str(wid).encode().ljust(16))
+            s.send(stringData)
+            print("start sending")
+
+            # Receiving Bbox info
+            data_len = s.recv(16)
+
+            x1 = json.loads(s.recv(int(data_len)))
+            y1 = json.loads(s.recv(int(data_len)))
+            x2 = json.loads(s.recv(int(data_len)))
+            y2 = json.loads(s.recv(int(data_len)))
+            class_id = json.loads(s.recv(int(data_len)))
+
+            print("BBox info received!!!!!")
+
+            for i in range(len(x1)):
+                # bbox_px = np.array([[x1[i], x2[i], x2[i], x1[i]],
+                #                     [y2[i], y2[i], y1[i], y1[i]]])
+                bbox_px = np.array([[x1[i], x2[i], x2[i], x1[i]],
+                                    [y1[i], y1[i], y2[i], y2[i]]])
+
+                tm_eo = latlon2tmcentral(parsed_eo)
+                R_GC = Rot3D(tm_eo)
+                R_CG = R_GC.transpose()
+
+                print("bbox is like this", bbox_px)
+
+                # Convert pixel coordinate system to camera coordinate system
+                bbox_camera = pcs2ccs(bbox_px, hei, wid,
+                                      my_drone.ipod_params['sensor_width'] / wid,
+                                      my_drone.ipod_params['focal_length'] * 1000)  # shape: 3 x bbox_point
+                # input params unit: px, px, px, mm/px, mm
+
+                # Project camera coordinates to ground coordinates
+                proj_coordinates = projection(bbox_camera, tm_eo, R_CG,
+                                              my_drone.ipod_params['ground_height'])
+
+                bbox_ground1 = tmcentral2latlon(proj_coordinates[:, 0])
+                bbox_ground2 = tmcentral2latlon(proj_coordinates[:, 1])
+                bbox_ground3 = tmcentral2latlon(proj_coordinates[:, 2])
+                bbox_ground4 = tmcentral2latlon(proj_coordinates[:, 3])
+
+                print(bbox_ground1, '\n', bbox_ground2, '\n', bbox_ground3, '\n', bbox_ground4)
+
+                bboxcenter0 = np.mean(np.array([bbox_ground1[0], bbox_ground2[0], bbox_ground3[0], bbox_ground4[0]]))
+                bboxcenter1 = np.mean(np.array([bbox_ground1[1], bbox_ground2[1], bbox_ground3[1], bbox_ground4[1]]))
+                detected_objects_single = {
+                    "number": 0,
+                    "ortho_detected_object_id": None,
+                    "drone_project_id": None,
+                    "ortho_image_id": None,
+                    "user_id": None,
+                    "object_type": "1",
+                    "geometry": "POINT (%f %f)" % (bboxcenter0, bboxcenter1),
+                    "detected_date": "20180929203800",
+                    "bounding_box_geometry": "POLYGON ((%f %f, %f %f, %f %f, %f %f, %f %f))"
+                                             % (bbox_ground1[0], bbox_ground1[1],
+                                                bbox_ground2[0], bbox_ground2[1],
+                                                bbox_ground3[0], bbox_ground3[1],
+                                                bbox_ground4[0], bbox_ground4[1],
+                                                bbox_ground1[0], bbox_ground1[1]),
+                    "major_axis": None,  # 30,
+                    "minor_axis": None,  # 50,
+                    "orientation": None,  # 260,
+                    "bounding_box_area": None,  # 150,
+                    "length": None,  # 30,
+                    "speed": None,  # 12,
+                    "insert_date": None}
+
+                detected_objects.append(detected_objects_single)
+            if x1[0] == 0 and x2[0] == 0:
+                detected_objects=[]
+
+            # IPOD chain 2: Individual ortho-image generation
+            fname_dict['img_rectified'] = fname_dict['img'].split('.')[0][:-3] + '.tif'
+            bbox_wkt = rectify(
+                project_path=project_path,
+                img_fname=fname_dict['img'],
+                img_rectified_fname=fname_dict['img_rectified'],
+                eo=parsed_eo,
+                ground_height=my_drone.ipod_params['ground_height'],
+                sensor_width=my_drone.ipod_params['sensor_width'],
+                bbox=[x1,y1,x2,y2,class_id]
+            )
 
             # Generate metadata for Mago3D
             img_metadata = create_img_metadata(
@@ -206,7 +259,7 @@ def ldm_upload(project_id_str):
                 parsed_eo=parsed_eo
             )
 
-            #print(img_metadata)
+            print(os.path.join(project_path, fname_dict['img_rectified']))
 
             # Mago3D에 전송
             res = mago3d.upload(
@@ -219,6 +272,7 @@ def ldm_upload(project_id_str):
             return 'Image upload and IPOD chain complete'
         else:
             pass
+
 
 
 @app.route('/check/drone_polling')
@@ -291,7 +345,7 @@ def webodm_start_processing(project_id_str):
 
 
 if __name__ == '__main__':
-    app.run(threaded=True, host='0.0.0.0', port=30005)
+    app.run(threaded=True, host='0.0.0.0', port=30010)
     # socket.close()
 
 

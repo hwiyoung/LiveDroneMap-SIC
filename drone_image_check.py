@@ -3,6 +3,7 @@ import time
 import glob
 from tqdm import tqdm
 import numpy as np
+import arrow
 
 from config.config_watchdog import BaseConfig as Config
 from clients.ldm_client import Livedronemap
@@ -17,10 +18,10 @@ def start_image_check(simulation_id_str=None):
 
     # 현재 프로젝트 설정
     ldm = Livedronemap(Config.LDM_ADDRESS)
-    # drone_project_id = ldm.create_project('Simulation (%s)' % arrow.utcnow().format('YYYYMMDDHHmmss'),
+    drone_project_id = ldm.create_project('Simulation (%s)' % arrow.utcnow().format('YYYYMMDDHHmmss'),
+                                           project_type='1')  # TODO: project_type SHOULD BE '1'
+    # drone_project_id = ldm.create_project(Config.LDM_PROJECT_NAME,
     #                                       project_type='1')  # TODO: project_type SHOULD BE '1'
-    drone_project_id = ldm.create_project(Config.LDM_PROJECT_NAME,
-                                          project_type='1')  # TODO: project_type SHOULD BE '1'
     ldm.set_current_project(drone_project_id)
 
     # Mago3D 클라이언트 설정
