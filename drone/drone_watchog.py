@@ -91,9 +91,10 @@ class Handler(FileSystemEventHandler):
 
 
 if __name__ == '__main__':
+    filelist = [f for f in os.listdir(Config.DIRECTORY_TO_WATCH)]
+    for f in filelist:
+        os.remove(Config.DIRECTORY_TO_WATCH + "/" + f)
+    print('Removal is done!')
 
-    if os.path.exists('drone/downloads'):
-        for file in os.scandir('drone/downloads'):
-            os.remove(file)
     w = Watcher(directory_to_watch=Config.DIRECTORY_TO_WATCH)
     w.run()

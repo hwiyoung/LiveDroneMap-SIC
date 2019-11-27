@@ -51,6 +51,8 @@ mago3d = Mago3D(
     api_key=app.config['MAGO3D_CONFIG']['api_key']
 )
 
+height_threshold = 100
+
 # from server.my_drones import FlirDuoProR_optical
 # my_drone = FlirDuoProR_optical(pre_calibrated=True)
 
@@ -102,6 +104,12 @@ def ldm_upload(project_id_str):
     :param project_id_str: project_id which Mago3D assigned for each projects
     :return:
     """
+
+    ############# Log for checking processing time #############
+    f = open("log_processing_time.txt", "a")
+    f.write("Name\tSysCal\tInference\tRectify\n")
+    start_time = time.time()
+
     if request.method == 'POST':
         # Initialize variables
         project_path = os.path.join(app.config['UPLOAD_FOLDER'], project_id_str)
@@ -126,17 +134,23 @@ def ldm_upload(project_id_str):
 
         # IPOD chain 1: System calibration
         parsed_eo = my_drone.preprocess_eo_file(os.path.join(project_path, fname_dict['eo']))
+
+        if parsed_eo[2] - my_drone.ipod_params["ground_height"] <= height_threshold:
+            print("The height of the image is too low: ",
+                  parsed_eo[2] - my_drone.ipod_params["ground_height"], " m")
+            return "The height of the image is too low"
+        print("The height of the image: ", parsed_eo[2] - my_drone.ipod_params["ground_height"], " m")
+
         if not my_drone.pre_calibrated:
             print('System calibration')
             OPK = calibrate(parsed_eo[3], parsed_eo[4], parsed_eo[5], my_drone.ipod_params["R_CB"])
-            parsed_eo[3] = OPK[0]
-            parsed_eo[4] = OPK[1]
-            parsed_eo[5] = OPK[2]
+            parsed_eo[3:] = OPK
 
-            if OPK[0] > abs(0.175) or OPK[1] > abs(0.175):
+            if abs(OPK[0]) > 0.175 or abs(OPK[1]) > 0.175:
                 print('Too much omega/phi will kill you')
                 return 'Too much omega/phi will kill you'
 
+        sys_cal_time = time.time()
 
         bbox_wkt = 1
         if bbox_wkt is not None:
@@ -236,6 +250,8 @@ def ldm_upload(project_id_str):
             if x1[0] == 0 and x2[0] == 0:
                 detected_objects=[]
 
+            inference_time = time.time()
+
             # IPOD chain 2: Individual ortho-image generation
             fname_dict['img_rectified'] = fname_dict['img'].split('.')[0][:-3] + '.tif'
             bbox_wkt = rectify(
@@ -267,7 +283,14 @@ def ldm_upload(project_id_str):
                 img_metadata=img_metadata
             )
 
+            rectify_time = time.time()
+
             print(res.text)
+
+            cur_time = "%s\t%f\t%f\t%f\n" % (fname_dict['img'], sys_cal_time - start_time,
+                                             inference_time - sys_cal_time, rectify_time - inference_time)
+            f.write(cur_time)
+            print(cur_time)
 
             return 'Image upload and IPOD chain complete'
         else:
@@ -345,7 +368,7 @@ def webodm_start_processing(project_id_str):
 
 
 if __name__ == '__main__':
-    app.run(threaded=True, host='0.0.0.0', port=30010)
+    app.run(threaded=True, host='0.0.0.0', port=30011)
     # socket.close()
 
 
