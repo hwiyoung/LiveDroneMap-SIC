@@ -14,8 +14,9 @@ myPort = 5001
 local_path = "/mnt/mingha88/LDM"
 # local_path = "/mnt/mingha88/PMJeju/1_kau_1010/191010/1_/annotated"
 
-remote_path = '/home/innopam-ldm/PycharmProjects/livedronemap/drone/downloads'
+# remote_path = '/home/innopam-ldm/PycharmProjects/livedronemap/drone/downloads'
 # remote_path = '/mnt/AIMIFY/live_image/abx101/20191025/sony_test'
+remote_path = "/mnt/AIMIFY/live_image/abx101/20191126/sony"
 
 cnopts = pysftp.CnOpts()
 cnopts.hostkeys = None

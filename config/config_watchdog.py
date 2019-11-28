@@ -5,8 +5,8 @@ class BaseConfig:
     DIRECTORY_IMAGE_CHECK = "/mnt/mingha88/PMJeju/0_kau_0830/Jeju_KAU_Ocean" #'drone/examples'
     # DIRECTORY_IMAGE_CHECK = 'drone/examples'
     # DIRECTORY_TO_WATCH = "/mnt/mingha88/LDM"
-    DIRECTORY_TO_WATCH = 'drone/downloads'
-    # DIRECTORY_TO_WATCH = "/mnt/AIMIFY/live_image/abx101/20191126/sony"
+    # DIRECTORY_TO_WATCH = 'drone/downloads'
+    DIRECTORY_TO_WATCH = "/mnt/AIMIFY/live_image/abx101/20191128/sony"
     # DIRECTORY_TO_WATCH = "/Jeju"
     IMAGE_FILE_EXT = 'JPG'
     EO_FILE_EXT = 'txt'
