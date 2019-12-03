@@ -217,6 +217,14 @@ class SONY_ILCE_QX1(BaseDrone):
                 'formats': ('U22', '<f8', '<f8', '<f8', '<f8', '<f8', '<f8')
             }
         )
+        # eo_line = np.genfromtxt(
+        #     eo_path,
+        #     delimiter='\t',
+        #     dtype={
+        #         'names': ('Longitude', 'Latitude', 'Altitude', 'Roll', 'Pitch', 'Yaw'),
+        #         'formats': ('<f8', '<f8', '<f8', '<f8', '<f8', '<f8')
+        #     }
+        # )
 
         eo_line['Roll'] = eo_line['Roll'] * math.pi / 180
         eo_line['Pitch'] = eo_line['Pitch'] * math.pi / 180

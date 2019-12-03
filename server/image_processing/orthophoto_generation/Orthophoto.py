@@ -4,13 +4,11 @@ import cv2
 import time
 from osgeo import ogr
 from osgeo import gdal
-from osgeo import osr
 from server.image_processing.orthophoto_generation.ExifData import exiv2, restoreOrientation, getExif
 from server.image_processing.orthophoto_generation.EoData import latlon2tmcentral, Rot3D
 from server.image_processing.orthophoto_generation.Boundary import boundary
 from server.image_processing.orthophoto_generation.BackprojectionResample import projectedCoord, backProjection, \
     resample, createGeoTiff
-import matplotlib.pyplot as plt
 
 def highlighting_bbox(image,bbox):
     idx = 0
@@ -55,21 +53,21 @@ def rectify(project_path, img_fname, img_rectified_fname, eo, ground_height, sen
     start_time = time.time()
 
     print('Read the image - ' + img_fname)
-
     image = cv2.imread(img_path)
+
     # Highlighting Bounding Box on livedronemap
-    image = highlighting_bbox(image, bbox)
+    # image = highlighting_bbox(image, bbox)
+
     # 0. Extract EXIF data from a image
     focal_length, orientation = getExif(img_path)  # unit: m
 
     # 1. Restore the image based on orientation information
+    print("Accept the orientation: ", orientation)
     restored_image = restoreOrientation(image, orientation)
-    restored_image = image
+    # print("Reject the orientation: ", orientation)
+    # restored_image = image
 
-    # plt.imshow(restored_image)
-    # plt.show()
-
-    cv2.imwrite('/home/innopam-ldm/PycharmProjects/livedronemap/restored.jpg', restored_image)
+    # cv2.imwrite('/home/innopam-ldm/PycharmProjects/livedronemap/restored_' + img_fname, restored_image)
 
     image_rows = restored_image.shape[0]
     image_cols = restored_image.shape[1]
@@ -116,7 +114,7 @@ def rectify(project_path, img_fname, img_rectified_fname, eo, ground_height, sen
 
         print('resample')
         start_time = time.time()
-        b, g, r, a = resample(backProj_coords, boundary_rows, boundary_cols, image)
+        b, g, r, a = resample(backProj_coords, boundary_rows, boundary_cols, restored_image)
         print("--- %s seconds ---" % (time.time() - start_time))
 
         print('Save the image in GeoTiff')

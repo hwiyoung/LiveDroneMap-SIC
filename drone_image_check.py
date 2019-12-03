@@ -14,14 +14,15 @@ MAGO3D_CONFIG = json.load(open('config/config_mago3d.json', 'r'))
 
 def start_image_check(simulation_id_str=None):
     img_fname_list = glob.glob('%s/*.JPG' % Config.DIRECTORY_IMAGE_CHECK)
+    print(Config.DIRECTORY_IMAGE_CHECK)
     img_fname_list.sort()
 
     # 현재 프로젝트 설정
     ldm = Livedronemap(Config.LDM_ADDRESS)
-    drone_project_id = ldm.create_project('Simulation (%s)' % arrow.utcnow().format('YYYYMMDDHHmmss'),
-                                           project_type='1')  # TODO: project_type SHOULD BE '1'
-    # drone_project_id = ldm.create_project(Config.LDM_PROJECT_NAME,
-    #                                       project_type='1')  # TODO: project_type SHOULD BE '1'
+    # drone_project_id = ldm.create_project('Simulation (%s)' % arrow.utcnow().format('YYYYMMDDHHmmss'),
+    #                                        project_type='1')  # TODO: project_type SHOULD BE '1'
+    drone_project_id = ldm.create_project(Config.LDM_PROJECT_NAME,
+                                          project_type='1')  # TODO: project_type SHOULD BE '1'
     ldm.set_current_project(drone_project_id)
 
     # Mago3D 클라이언트 설정
