@@ -62,7 +62,7 @@ crashlytics-build.properties
 fabric.properties
 
 # Editor-based Rest Client
-.idea/httpRequests
+.idea/httpRequests/
 
 ### PyCharm Patch ###
 # Comment Reason: https://github.com/joeblau/gitignore.io/issues/186#issuecomment-215987721
