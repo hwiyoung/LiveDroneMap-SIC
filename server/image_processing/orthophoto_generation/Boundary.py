@@ -1,4 +1,6 @@
 import numpy as np
+from osgeo import ogr
+
 
 def boundary(image, eo, R, dem, pixel_size, focal_length):
     inverse_R = R.transpose()
@@ -51,6 +53,15 @@ def projection(vertices, eo, rotation_matrix, dem):
     return plane_coord_GCS
 
 def pcs2ccs(bbox_px, rows, cols, pixel_size, focal_length):
+    """
+    Convert pixel coordinate system to camera coordinate system
+    :param bbox_px: Bounding box in pixel coordinate system, px - shape: 2 x n
+    :param rows: The length of rows in pixel, px
+    :param cols: The length of columns in pixel, px
+    :param pixel_size: mm/px
+    :param focal_length: mm
+    :return: Bounding box in camera coordinate system, mm
+    """
     bbox_camera = np.empty(shape=(3, bbox_px.shape[1]))
 
     bbox_camera[0, :] = (bbox_px[0, :] - cols / 2) * pixel_size
@@ -58,3 +69,45 @@ def pcs2ccs(bbox_px, rows, cols, pixel_size, focal_length):
     bbox_camera[2, :] = -focal_length
 
     return bbox_camera
+
+def export_bbox_to_wkt(bbox, dst):
+    # Create a polygon
+    ring = ogr.Geometry(ogr.wkbLinearRing)
+    ring.AddPoint(bbox[0][0], bbox[2][0])   # Xmin, Ymin
+    ring.AddPoint(bbox[0][0], bbox[3][0])   # Xmin, Ymax
+    ring.AddPoint(bbox[1][0], bbox[3][0])   # Xmax, Ymax
+    ring.AddPoint(bbox[1][0], bbox[2][0])   # Xmax, Ymin
+    ring.AddPoint(bbox[0][0], bbox[2][0])   # Xmin, Ymin
+
+    geom_poly = ogr.Geometry(ogr.wkbPolygon)
+    geom_poly.AddGeometry(ring)
+
+    # Export geometry to WKT
+    wkt = geom_poly.ExportToWkt()
+
+    f = open(dst + '.txt', 'w')
+    f.write(wkt)
+    f.close()
+
+    return wkt
+
+def export_bbox_to_wkt2(bbox, dst):
+    res = "POLYGON ((" + \
+          str(bbox[0, 0]) + " " + str(bbox[2, 0]) + ", " + \
+          str(bbox[0, 0]) + " " + str(bbox[3, 0]) + ", " + \
+          str(bbox[1, 0]) + " " + str(bbox[3, 0]) + ", " + \
+          str(bbox[1, 0]) + " " + str(bbox[2, 0]) + ", " + \
+          str(bbox[0, 0]) + " " + str(bbox[2, 0]) + "))"
+
+    # f = open(dst + '.txt', 'w')
+    # f.write(res)
+    # f.close()
+    return res
+
+
+def create_pgw(bbox, gsd, dst):
+    pgw = str(gsd) + '\n' + str(0) + '\n' + str(0) + '\n' + str(-gsd) + \
+          '\n' + str(bbox[0][0]) + '\n' + str(bbox[3][0])
+    f = open(dst + '.pgw', 'w')
+    f.write(pgw)
+    f.close()

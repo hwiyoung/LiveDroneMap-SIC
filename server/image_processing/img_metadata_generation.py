@@ -25,38 +25,37 @@ def create_img_metadata(drone_project_id, data_type, file_name, detected_objects
     return img_metadata
 
 
-def create_img_metadata_tcp(name, orthophoto, tm_eo, img_boundary, objects):
+def create_img_metadata_udp(uuid, path, name, tm_eo, img_boundary, objects):
     """
-    Create a metadata of an orthophoto for tcp transmission
-    :param name: The name of the original image
-    :param orthophoto: orthophoto | String from np.array?
+    Create a metadata of an orthophoto for udp transmission
+    :param uuid: uuid of the image | String
+    :param path: A path of a generated orthophoto | String
+    :param name: A name of the original image | String
     :param tm_eo: EOP of the image | np.array
     :param img_boundary: Boundary of the orthophoto | String in wkt
     :param objects: JSON object? array? of the detected object ... from create_obj_metadata
-    :return:
+    :return: JSON object of the orthophoto ... python dictionary
     """
-    # orthophoto_for_json = orthophoto.tostring()
     img_metadata = {
-        "img_id": name,  # String
-        "orthophoto": orthophoto,  # String
-        "position": [tm_eo[0], tm_eo[1]],  # Array
+        "uid": uuid,    # String
+        "path": path,  # String
+        "img_name": name,  # String
+        "img_position": [tm_eo[0], tm_eo[1]],  # Array
         "img_boundary": img_boundary,  # WKT ... String
+        "objects": objects
     }
-    img_metadata["objects"] = objects
 
     return img_metadata
 
 
-def create_obj_metadata(object_id, object_type, boundary):
+def create_obj_metadata(object_type, boundary):
     """
     Create a metadata of **each** detected object
-    :param object_id: ID of the object | string
     :param object_type: Type of the object | int
     :param boundary: Boundary of the object in GCS - shape: 2(x, y) x points | np.array
-    :return: JSON object of the detected object
+    :return: JSON object of each detected object ... python dictionary
     """
     obj_metadata = {
-        "obj_id": object_id,
         "obj_type": object_type
     }
 

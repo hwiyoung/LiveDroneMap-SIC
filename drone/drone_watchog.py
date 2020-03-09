@@ -47,23 +47,15 @@ class Handler(FileSystemEventHandler):
         if event.is_directory:
             return None
         elif event.event_type == 'created':
-            file_name = event.src_path.split('\\')[-1].split('.')[0][:-3]   # xxxx_8b
+            file_name = event.src_path.split('\\')[-1].split('.')[0]
             extension_name = event.src_path.split('.')[-1]
             print('A new file detected: %s' % file_name)
             print('extenstion: ', extension_name)
             if Config.IMAGE_FILE_EXT in extension_name:
                 image_list.append(file_name)
                 time.sleep(5)
-                # eo_dict = extract_eo(file_name + '.' + Config.IMAGE_FILE_EXT, Config.CAMERA_MANUFACTURER)
                 eo_dict = extract_eo(event.src_path, Config.CAMERA_MANUFACTURER)
                 with open(file_name + '.' + Config.EO_FILE_EXT, 'w') as f:
-                    # eo_file_data = file_name.split('/')[-1] + '.' + Config.IMAGE_FILE_EXT + '\t' + \
-                    #                str(eo_dict['longitude']) + '\t' + \
-                    #                str(eo_dict['latitude']) + '\t' + \
-                    #                str(eo_dict['altitude']) + '\t' + \
-                    #                str(eo_dict['yaw']) + '\t' + \
-                    #                str(eo_dict['pitch']) + '\t' + \
-                    #                str(eo_dict['roll']) + '\t'
                     eo_file_data = file_name.split('/')[-1] + '.' + Config.IMAGE_FILE_EXT + '\t' + \
                                    str(eo_dict['longitude']) + '\t' + \
                                    str(eo_dict['latitude']) + '\t' + \
@@ -76,11 +68,6 @@ class Handler(FileSystemEventHandler):
                     f.write(eo_file_data)
                 eo_list.append(file_name + Config.EO_FILE_EXT)
                 print('uploading data...')
-                # upload_data(
-                #     file_name + '.' + Config.IMAGE_FILE_EXT,
-                #     file_name + '.' + Config.EO_FILE_EXT
-                # )
-
                 upload_data(
                     event.src_path,
                     file_name + '.' + Config.EO_FILE_EXT

@@ -7,12 +7,13 @@ class Livedronemap:
         self.current_project_id = None
         self.current_simulation_id = None
 
-    def create_project(self, project_name, project_type='0', shooting_area='Unknown'):
+    def create_project(self, project_name, project_type='0', shooting_area='Unknown', visualization_module='LOCAL'):
         project_json = {
             'mode': 'create',
             'name':  project_name,
             'project_type': project_type,
-            'shooting_area': shooting_area
+            'shooting_area': shooting_area,
+            'visualization_module': visualization_module
         }
         r = requests.post(self.url + 'project/', json=project_json)
         return r.text

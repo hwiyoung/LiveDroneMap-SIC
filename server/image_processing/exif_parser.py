@@ -1,6 +1,7 @@
 from datetime import datetime
-
 import pyexiv2
+from pyexiv2 import metadata
+import numpy as np
 
 
 def convert_fractions_to_float(fraction):
@@ -17,37 +18,26 @@ def convert_dms_to_deg(dms):
 
 def extract_eo(fname, camera_manufacturer):
     if camera_manufacturer == 'DJI':
-        metadata = pyexiv2.ImageMetadata(fname)
-        metadata.read()
+        meta = metadata.ImageMetadata(fname)
+        meta.read()
 
-        latitude = metadata['Exif.GPSInfo.GPSLatitude'].value
-        longitude = metadata['Exif.GPSInfo.GPSLongitude'].value
-        altitude = metadata['Xmp.drone-dji.AbsoluteAltitude'].value
-        roll = float(metadata['Xmp.drone-dji.FlightRollDegree'].value)
-        pitch = float(metadata['Xmp.drone-dji.FlightPitchDegree'].value)
-        yaw = float(metadata['Xmp.drone-dji.FlightYawDegree'].value)
+        latitude = convert_dms_to_deg(meta['Exif.GPSInfo.GPSLatitude'].value)
+        longitude = convert_dms_to_deg(meta['Exif.GPSInfo.GPSLongitude'].value)
+        altitude = float(meta['Xmp.drone-dji.RelativeAltitude'].value)
+        roll = float(meta['Xmp.drone-dji.GimbalRollDegree'].value)
+        pitch = float(meta['Xmp.drone-dji.GimbalPitchDegree'].value)
+        yaw = float(meta['Xmp.drone-dji.GimbalYawDegree'].value)
 
-        latitude = convert_dms_to_deg(latitude)
-        longitude = convert_dms_to_deg(longitude)
-        altitude = float(altitude)
+    elif camera_manufacturer == 'samsung':
+        meta = metadata.ImageMetadata(fname)
+        meta.read()
 
-    elif camera_manufacturer == 'AIMIFY/FLIR/Visible':
-        fname_split = fname.split('/')[-1].split('_')
-        latitude = float(fname_split[4])
-        longitude = float(fname_split[5])
-        altitude = float(fname_split[6])
-        roll = float(fname_split[7])
-        pitch = float(fname_split[8])
-        yaw = float(fname_split[9][:-4])
-
-    elif camera_manufacturer == 'AIMIFY/SONY':
-        fname_split = fname.split('/')[-1].split('_')
-        latitude = float(fname_split[2])
-        longitude = float(fname_split[3])
-        altitude = float(fname_split[4])
-        roll = float(fname_split[5])
-        pitch = float(fname_split[6])
-        yaw = float(fname_split[7][:-4])
+        latitude = convert_dms_to_deg(meta['Exif.GPSInfo.GPSLatitude'].value)
+        longitude = convert_dms_to_deg(meta['Exif.GPSInfo.GPSLongitude'].value)
+        altitude = convert_fractions_to_float(meta['Exif.GPSInfo.GPSAltitude'].value)
+        roll = float(meta['Xmp.DLS.Roll'].value) * 180 / np.pi
+        pitch = float(meta['Xmp.DLS.Pitch'].value) * 180 / np.pi
+        yaw = float(meta['Xmp.DLS.Yaw'].value) * 180 / np.pi
 
     result = {
         'longitude': longitude,

@@ -1,26 +1,27 @@
 import numpy as np
 import math
-from copy import copy
 from osgeo.osr import SpatialReference, CoordinateTransformation
+from copy import copy
 
 def readEO(path):
     eo_line = np.genfromtxt(path, delimiter='\t',
-                            dtype={'names': ('Image', 'Latitude', 'Longitude', 'Height', 'Omega', 'Phi', 'Kappa'),
-                                   'formats': ('U15', '<f8', '<f8', '<f8', '<f8', '<f8', '<f8')})
+                            dtype={'names': ('Image', 'Longitude', 'Latitude', 'Height', 'Omega', 'Phi', 'Kappa'),
+                                   'formats': ('U30', '<f8', '<f8', '<f8', '<f8', '<f8', '<f8')})
 
     eo_line['Omega'] = eo_line['Omega'] * math.pi / 180
     eo_line['Phi'] = eo_line['Phi'] * math.pi / 180
     eo_line['Kappa'] = eo_line['Kappa'] * math.pi / 180
 
-    eo = [float(eo_line['Latitude']), float(eo_line['Longitude']), float(eo_line['Height']),
+    eo = [float(eo_line['Longitude']), float(eo_line['Latitude']), float(eo_line['Height']),
           float(eo_line['Omega']), float(eo_line['Phi']), float(eo_line['Kappa'])]
+    print(eo)
 
     return eo
 
 def latlon2tmcentral(eo):
     # Define the TM central coordinate system (EPSG 5186)
     epsg5186 = SpatialReference()
-    epsg5186.ImportFromEPSG(5186)
+    epsg5186.ImportFromEPSG(3857)
 
     # Define the wgs84 system (EPSG 4326)
     epsg4326 = SpatialReference()
@@ -29,14 +30,10 @@ def latlon2tmcentral(eo):
     latlon2tm = CoordinateTransformation(epsg4326, epsg5186)
 
     # Check the transformation for a point close to the centre of the projected grid
-    try:
-        xy = latlon2tm.TransformPoint(float(eo[0]), float(eo[1]))  # The order: Lon, Lat
-    except:
-        xy = latlon2tm.TransformPoint(float(eo[1]), float(eo[0]))  # The order: Lon, Lat
-    converted_eo = copy(eo)
-    converted_eo[0:2] = xy[0:2]
+    xy = latlon2tm.TransformPoint(float(eo[0]), float(eo[1]))  # The order: Lon, Lat
+    eo[0:2] = xy[0:2]
 
-    return converted_eo
+    return eo
 
 def tmcentral2latlon(eo):
     # Define the TM central coordinate system (EPSG 5186)
@@ -51,10 +48,9 @@ def tmcentral2latlon(eo):
 
     # Check the transformation for a point close to the centre of the projected grid
     lonlat = tm2latlon.TransformPoint(float(eo[0]), float(eo[1]))  # The order: x, y
-    converted_eo = copy(eo)
-    converted_eo[0:2] = lonlat[0:2]
+    eo[0:2] = lonlat[0:2]
 
-    return converted_eo
+    return eo
 
 def Rot3D(eo):
     om = eo[3]
@@ -101,5 +97,34 @@ def Rot3D(eo):
     Rz[2, 2] = 1
 
     # R = Rz * Ry * Rx
-    R = np.linalg.multi_dot([Rz, Ry, Rx])
+    Rzy = np.dot(Rz, Ry)
+    R = np.dot(Rzy, Rx)
+
     return R
+
+def rot_2d(theta):
+    # Convert the coordinate system not coordinates
+    return np.array([[np.cos(theta), np.sin(theta)],
+                     [-np.sin(theta), np.cos(theta)]])
+
+def rpy_to_opk(gimbal_rpy):
+    roll_pitch = copy(gimbal_rpy[0:2])
+    roll_pitch[0] = 90 + gimbal_rpy[1]
+    if gimbal_rpy[0] < 0:
+        roll_pitch[1] = 0
+    else:
+        roll_pitch[1] = gimbal_rpy[0]
+
+    omega_phi = np.dot(rot_2d(gimbal_rpy[2] * np.pi / 180), roll_pitch.reshape(2, 1))
+    kappa = -gimbal_rpy[2]
+    return np.array([float(omega_phi[0, 0]), float(omega_phi[1, 0]), kappa])
+
+def rpy_to_opk_smartphone(smartphone_rpy):
+    roll_pitch = copy(smartphone_rpy[0:2])
+
+    roll_pitch[0] = -smartphone_rpy[1]
+    roll_pitch[1] = -smartphone_rpy[0]
+
+    omega_phi = np.dot(rot_2d(smartphone_rpy[2] * np.pi / 180), roll_pitch.reshape(2, 1))
+    kappa = -smartphone_rpy[2]-90
+    return np.array([float(omega_phi[0, 0]), float(omega_phi[1, 0]), kappa])

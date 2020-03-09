@@ -6,7 +6,7 @@ from osgeo import ogr
 from osgeo import gdal
 from server.image_processing.orthophoto_generation.ExifData import exiv2, restoreOrientation, getExif
 from server.image_processing.orthophoto_generation.EoData import latlon2tmcentral, Rot3D
-from server.image_processing.orthophoto_generation.Boundary import boundary
+from server.image_processing.orthophoto_generation.Boundary import boundary, export_bbox_to_wkt2
 from server.image_processing.orthophoto_generation.BackprojectionResample import projectedCoord, backProjection, \
     resample, createGeoTiff
 
@@ -24,19 +24,9 @@ def highlighting_bbox(image,bbox):
         idx += 1
     return image
 
-def export_bbox_to_wkt(bbox):
-    ring = ogr.Geometry(ogr.wkbLinearRing)
-    ring.AddPoint(bbox[0][0], bbox[2][0])
-    ring.AddPoint(bbox[0][0], bbox[3][0])
-    ring.AddPoint(bbox[1][0], bbox[2][0])
-    ring.AddPoint(bbox[1][0], bbox[3][0])
-    geom_poly = ogr.Geometry(ogr.wkbPolygon)
-    geom_poly.AddGeometry(ring)
-    wkt = geom_poly.ExportToWkt()
-    return wkt
-
 
 def rectify(project_path, img_fname, img_rectified_fname, eo, ground_height, sensor_width, gsd='auto', bbox=[0,0,0,0,0]):
+    #TODO: Change the params
     """
     In order to generate individual ortho-image, this function rectifies a given drone image on a reference plane.
     :param img_fname:
@@ -48,6 +38,10 @@ def rectify(project_path, img_fname, img_rectified_fname, eo, ground_height, sen
     :param gsd: GSD in m. If not specified, it will automatically determine gsd.
     :return File name of rectified image, boundary polygon in WKT  string
     """
+
+    # rectified_full_fname = data_store + project_path + rectified_fname
+    rectified_full_fname = project_path + img_rectified_fname
+
     img_path = os.path.join(project_path, img_fname)
 
     start_time = time.time()
@@ -108,36 +102,32 @@ def rectify(project_path, img_fname, img_rectified_fname, eo, ground_height, sen
     print('backProjection')
     start_time = time.time()
     backProj_coords = backProjection(proj_coords, R, focal_length, pixel_size, image_size)
+    print("--- %s seconds ---" % (time.time() - start_time))
 
-    if backProj_coords is not None:
-        print("--- %s seconds ---" % (time.time() - start_time))
+    print('resample')
+    start_time = time.time()
+    b, g, r, a = resample(backProj_coords, boundary_rows, boundary_cols, restored_image)
+    print("--- %s seconds ---" % (time.time() - start_time))
 
-        print('resample')
-        start_time = time.time()
-        b, g, r, a = resample(backProj_coords, boundary_rows, boundary_cols, restored_image)
-        print("--- %s seconds ---" % (time.time() - start_time))
+    print('Save the image in GeoTiff')
+    start_time = time.time()
+    img_rectified_fname_kctm = img_rectified_fname.split('.')[0] + '_kctm.tif'
+    dst = os.path.join(project_path, img_rectified_fname_kctm)
+    createGeoTiff(b, g, r, a, bbox, gsd, boundary_rows, boundary_cols, dst)
 
-        print('Save the image in GeoTiff')
-        start_time = time.time()
-        img_rectified_fname_kctm = img_rectified_fname.split('.')[0] + '_kctm.tif'
-        dst = os.path.join(project_path, img_rectified_fname_kctm)
-        createGeoTiff(b, g, r, a, bbox, gsd, boundary_rows, boundary_cols, dst)
+    # GDAL warp to reproject from EPSG:5186 to EPSG:4326
+    gdal.Warp(
+        os.path.join(project_path, img_rectified_fname),
+        gdal.Open(os.path.join(project_path, img_rectified_fname_kctm)),
+        format='GTiff',
+        srcSRS='EPSG:5186',
+        dstSRS='EPSG:4326'
+    )
 
-        # GDAL warp to reproject from EPSG:5186 to EPSG:4326
-        gdal.Warp(
-            os.path.join(project_path, img_rectified_fname),
-            gdal.Open(os.path.join(project_path, img_rectified_fname_kctm)),
-            format='GTiff',
-            srcSRS='EPSG:5186',
-            dstSRS='EPSG:4326'
-        )
+    print("--- %s seconds ---" % (time.time() - start_time))
 
-        print("--- %s seconds ---" % (time.time() - start_time))
+    print('*** Processing time per each image')
+    print("--- %s seconds ---" % (time.time() - start_time + read_time))
 
-        print('*** Processing time per each image')
-        print("--- %s seconds ---" % (time.time() - start_time + read_time))
-
-        bbox_wkt = export_bbox_to_wkt(bbox)
-        return bbox_wkt
-    else:
-        return None
+    bbox_wkt = export_bbox_to_wkt2(bbox, rectified_full_fname)
+    return bbox_wkt
