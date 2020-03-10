@@ -35,6 +35,23 @@ def latlon2tmcentral(eo):
 
     return eo
 
+def geographic2plane(eo, epsg):
+    # Define the Plane Coordinate System (EPSG 5186)
+    plane = SpatialReference()
+    plane.ImportFromEPSG(epsg)
+
+    # Define the wgs84 system (EPSG 4326)
+    geographic = SpatialReference()
+    geographic.ImportFromEPSG(4326)
+
+    coord_transformation = CoordinateTransformation(geographic, plane)
+
+    # Check the transformation for a point close to the centre of the projected grid
+    xy = coord_transformation.TransformPoint(float(eo[0]), float(eo[1]))  # The order: Lon, Lat
+    eo[0:2] = xy[0:2]
+
+    return eo
+
 def tmcentral2latlon(eo):
     # Define the TM central coordinate system (EPSG 5186)
     epsg5186 = SpatialReference()

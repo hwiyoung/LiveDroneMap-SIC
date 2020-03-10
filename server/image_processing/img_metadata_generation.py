@@ -25,23 +25,25 @@ def create_img_metadata(drone_project_id, data_type, file_name, detected_objects
     return img_metadata
 
 
-def create_img_metadata_udp(uuid, path, name, tm_eo, img_boundary, objects):
+def create_img_metadata_udp(uuid, path, name, img_type, tm_eo, img_boundary, objects):
     """
     Create a metadata of an orthophoto for udp transmission
-    :param uuid: uuid of the image | String
-    :param path: A path of a generated orthophoto | String
-    :param name: A name of the original image | String
+    :param uuid: uuid of the image | string
+    :param path: A path of a generated orthophoto | string
+    :param name: A name of the original image | string
+    :param img_type: A type of the image - optical(0)/thermal(1) | int
     :param tm_eo: EOP of the image | np.array
-    :param img_boundary: Boundary of the orthophoto | String in wkt
+    :param img_boundary: Boundary of the orthophoto | string in wkt
     :param objects: JSON object? array? of the detected object ... from create_obj_metadata
     :return: JSON object of the orthophoto ... python dictionary
     """
     img_metadata = {
-        "uid": uuid,    # String
-        "path": path,  # String
-        "img_name": name,  # String
-        "img_position": [tm_eo[0], tm_eo[1]],  # Array
-        "img_boundary": img_boundary,  # WKT ... String
+        "uid": uuid,    # string
+        "path": path,   # string
+        "img_name": name,   # string
+        "img_type": img_type,   # int
+        "img_position": [tm_eo[0], tm_eo[1]],  # array
+        "img_boundary": img_boundary,  # WKT ... string
         "objects": objects
     }
 

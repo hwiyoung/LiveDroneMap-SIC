@@ -10,27 +10,55 @@ from flask import Flask, request
 from werkzeug.utils import secure_filename
 
 from config import config_flask
-from server.image_processing.img_metadata_generation import create_img_metadata_udp
+from server.image_processing.img_metadata_generation import create_img_metadata_udp, create_obj_metadata
 from clients.webodm import WebODM
 from clients.mago3d import Mago3D
 
-from server.image_processing.orthophoto_generation.Orthophoto import rectify
-from server.image_processing.orthophoto_generation.EoData import rpy_to_opk
+from server.image_processing.orthophoto_generation.Orthophoto import rectify, rectify2
+from server.image_processing.orthophoto_generation.ExifData import get_metadata
+from server.image_processing.orthophoto_generation.EoData import rpy_to_opk, geographic2plane
+from server.image_processing.orthophoto_generation.Boundary import transform_bbox
 
 # Convert pixel bbox to world bbox
 from server.image_processing.orthophoto_generation.Boundary import pcs2ccs, projection
 from server.image_processing.orthophoto_generation.EoData import Rot3D, latlon2tmcentral, tmcentral2latlon
 from server.image_processing.orthophoto_generation.ExifData import getExif, restoreOrientation
 
-# # socket for sending
-# TCP_IP = '192.168.0.24'
-# TCP_PORT = 5010
-#
-# s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-#
-# s.connect((TCP_IP, TCP_PORT))
-# print('connected!')
+from struct import *
+
+# socket for sending
+TCP_IP = '192.168.0.24'
+TCP_PORT = 5010
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+s.connect((TCP_IP, TCP_PORT))
+print('connected!')
+
+# def highlighting_bbox(image,bbox):
+#     idx = 0
+#     blue = (255, 0, 0)
+#     green = (0, 255, 0)
+#     red = (0, 0, 255)
+#     black = (0, 0, 0)
+#     purple = (128,0,128)
+#     notorange = (255,127,80)
+#     object_color = {1: blue, 2: green, 3: black, 4: red, 5: purple, 6: notorange}
+#     for object_id in bbox[4]:
+#         if object_id == 6:
+#             test = 0
+#         image = cv2.rectangle(image, (bbox[0][idx] - 5, bbox[1][idx] - 5), (bbox[2][idx] + 5, bbox[3][idx] + 5), object_color[object_id], 5)
+#         idx += 1
+#     return image
+
+# #########################
+# # Client for map viewer #
+# #########################
+# s1 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+# s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+# dest = ("localhost", 57820)
+# print("binding...")
 
 # Initialize flask
 app = Flask(__name__)
@@ -127,137 +155,82 @@ def ldm_upload(project_id_str):
         ################################
         # IPOD chain 1: Pre-processing #
         ################################
+        print("IPOD chain 1: Pre-processing")
+        print(" * Read EOP")
         parsed_eo = my_drone.preprocess_eo_file(os.path.join(project_path, fname_dict['eo']))   # degrees
         if parsed_eo[2] - my_drone.ipod_params["ground_height"] <= height_threshold:
-            print("The height is too low: ", parsed_eo[2] - my_drone.ipod_params["ground_height"], " m")
+            print(" * The height is too low: ", parsed_eo[2] - my_drone.ipod_params["ground_height"], " m")
             return "The height of the image is too low"
-        print("The height of the image: ", parsed_eo[2] - my_drone.ipod_params["ground_height"], " m")
+        print(" * The height of the image: ", parsed_eo[2] - my_drone.ipod_params["ground_height"], " m")
 
         if not my_drone.pre_calibrated:
-            print('System calibration')
-            # OPK = calibrate(parsed_eo[3], parsed_eo[4], parsed_eo[5], my_drone.ipod_params["R_CB"])
-            # parsed_eo[3:] = OPK
-
+            print(' * System calibration...')
             opk = rpy_to_opk(parsed_eo[3:])
             parsed_eo[3:] = opk * np.pi / 180  # degree to radian
-
             if abs(opk[0]) > 0.175 or abs(opk[1]) > 0.175:
                 print('Too much omega/phi will kill you')
                 return 'Too much omega/phi will kill you'
 
-        print("Metadata extraction")
+        epsg = 3857
+        converted_eo = geographic2plane(parsed_eo, epsg)
+        R_CG = Rot3D(converted_eo).T
 
-        sys_cal_time = time.time()
+        print(" * Metadata extraction...")
+        focal_length, orientation, _ = get_metadata(os.path.join(project_path, fname_dict["img"]),
+                                                    "Linux")  # unit: m, _, ndarray
+        img_type = 0
 
-        detected_objects = []
-        # # IPOD chain 3: Object detection
-        # imgencode = cv2.imread(project_path + '/' + fname_dict['img'])
-        #
-        # # # 0. Extract EXIF data from a image
-        # # focal_length, orientation = getExif(project_path + '/' + fname_dict['img'])  # unit: m
-        # #
-        # # # 1. Restore the image based on orientation information
-        # # imgencode_1 = restoreOrientation(imgencode, orientation)
-        # #
-        # # # plt.imshow(imgencode_1)
-        # # # plt.show()
-        # #
-        # # cv2.imwrite('/home/innopam-ldm/PycharmProjects/livedronemap/encode.jpg', imgencode_1)
-        # imgencode_1 = imgencode
-        #
-        # print(project_path + '/' + fname_dict['img'])
-        # hei = imgencode_1.shape[0]
-        # wid = imgencode_1.shape[1]
-        # print("hei wid",hei,wid)
-        # stringData = imgencode_1.tostring()
-        #
-        # s.send(str(hei).encode().ljust(16))
-        # s.send(str(wid).encode().ljust(16))
-        # s.send(stringData)
-        # print("start sending")
-        #
-        # # Receiving Bbox info
-        # data_len = s.recv(16)
-        #
-        # x1 = json.loads(s.recv(int(data_len)))
-        # y1 = json.loads(s.recv(int(data_len)))
-        # x2 = json.loads(s.recv(int(data_len)))
-        # y2 = json.loads(s.recv(int(data_len)))
-        # class_id = json.loads(s.recv(int(data_len)))
-        #
-        # print("BBox info received!!!!!")
-        #
-        # for i in range(len(x1)):
-        #     # bbox_px = np.array([[x1[i], x2[i], x2[i], x1[i]],
-        #     #                     [y2[i], y2[i], y1[i], y1[i]]])
-        #     bbox_px = np.array([[x1[i], x2[i], x2[i], x1[i]],
-        #                         [y1[i], y1[i], y2[i], y2[i]]])
-        #
-        #     tm_eo = latlon2tmcentral(parsed_eo)
-        #     R_GC = Rot3D(tm_eo)
-        #     R_CG = R_GC.transpose()
-        #
-        #     print("bbox is like this", bbox_px)
-        #
-        #     # Convert pixel coordinate system to camera coordinate system
-        #     bbox_camera = pcs2ccs(bbox_px, hei, wid,
-        #                           my_drone.ipod_params['sensor_width'] / wid,
-        #                           my_drone.ipod_params['focal_length'] * 1000)  # shape: 3 x bbox_point
-        #     # input params unit: px, px, px, mm/px, mm
-        #
-        #     # Project camera coordinates to ground coordinates
-        #     proj_coordinates = projection(bbox_camera, tm_eo, R_CG,
-        #                                   my_drone.ipod_params['ground_height'])
-        #
-        #     bbox_ground1 = tmcentral2latlon(proj_coordinates[:, 0])
-        #     bbox_ground2 = tmcentral2latlon(proj_coordinates[:, 1])
-        #     bbox_ground3 = tmcentral2latlon(proj_coordinates[:, 2])
-        #     bbox_ground4 = tmcentral2latlon(proj_coordinates[:, 3])
-        #
-        #     print(bbox_ground1, '\n', bbox_ground2, '\n', bbox_ground3, '\n', bbox_ground4)
-        #
-        #     bboxcenter0 = np.mean(np.array([bbox_ground1[0], bbox_ground2[0], bbox_ground3[0], bbox_ground4[0]]))
-        #     bboxcenter1 = np.mean(np.array([bbox_ground1[1], bbox_ground2[1], bbox_ground3[1], bbox_ground4[1]]))
-        #     detected_objects_single = {
-        #         "number": 0,
-        #         "ortho_detected_object_id": None,
-        #         "drone_project_id": None,
-        #         "ortho_image_id": None,
-        #         "user_id": None,
-        #         "object_type": "1",
-        #         "geometry": "POINT (%f %f)" % (bboxcenter0, bboxcenter1),
-        #         "detected_date": "20180929203800",
-        #         "bounding_box_geometry": "POLYGON ((%f %f, %f %f, %f %f, %f %f, %f %f))"
-        #                                  % (bbox_ground1[0], bbox_ground1[1],
-        #                                     bbox_ground2[0], bbox_ground2[1],
-        #                                     bbox_ground3[0], bbox_ground3[1],
-        #                                     bbox_ground4[0], bbox_ground4[1],
-        #                                     bbox_ground1[0], bbox_ground1[1]),
-        #         "major_axis": None,  # 30,
-        #         "minor_axis": None,  # 50,
-        #         "orientation": None,  # 260,
-        #         "bounding_box_area": None,  # 150,
-        #         "length": None,  # 30,
-        #         "speed": None,  # 12,
-        #         "insert_date": None}
-        #
-        #     detected_objects.append(detected_objects_single)
-        # if x1[0] == 0 and x2[0] == 0:
-        #     detected_objects=[]
+        preprocess_time = time.time()
+
+        ##################################
+        # IPOD chain 2: Object detection #
+        ##################################
+        print("IPOD chain 2: Object detection")
+        imgencode = cv2.imread(os.path.join(project_path, fname_dict["img"]))
+
+        # Restore the image based on orientation information
+        imgencode_1 = restoreOrientation(imgencode, orientation)
+
+        ####################################
+        # Send the image to inference server
+        print("start sending...")
+        imgshape = json.dumps(imgencode.shape[:2]).encode('utf-8').ljust(16)
+        stringData = imgencode_1.tostring()
+        s.send(imgshape)
+        s.send(stringData)
+
+        # Receiving Bbox info
+        data_len = s.recv(16)
+
+        bbox_coords_bytes = s.recv(int(data_len))
+        bbox_coords = json.loads(bbox_coords_bytes)
+        print("received!")
+        ####################################
+
+        img_rows = imgencode_1.shape[0]
+        img_cols = imgencode_1.shape[1]
+        pixel_size = my_drone.ipod_params['sensor_width'] / img_cols
+
+        obj_metadata = []
+        for bbox in bbox_coords:
+            bbox_world = transform_bbox(bbox, img_rows, img_cols, pixel_size,
+                                        my_drone.ipod_params['focal_length'],
+                                        converted_eo, R_CG, my_drone.ipod_params['ground_height'])
+
+            obj_metadata.append(create_obj_metadata(bbox[4], bbox_world))
+
+        # x1 = [603, 800, 289]
+        # x2 = [708, 988, 392]
+        # y1 = [776, 588, 1491]
+        # y2 = [860, 947, 1572]
+        # class_id = [3, 3, 3]
 
         inference_time = time.time()
 
-        # IPOD chain 2: Individual orthophoto generation
+        ##################################################
+        # IPOD chain 3: Individual orthophoto generation #
+        ##################################################
         fname_dict['img_rectified'] = fname_dict['img'].split('.')[0] + '.tif'
-        # bbox_wkt = rectify(
-        #     project_path=project_path,
-        #     img_fname=fname_dict['img'],
-        #     img_rectified_fname=fname_dict['img_rectified'],
-        #     eo=parsed_eo,
-        #     ground_height=my_drone.ipod_params['ground_height'],
-        #     sensor_width=my_drone.ipod_params['sensor_width'],
-        #     bbox=[x1,y1,x2,y2,class_id]
-        # )
         bbox_wkt = rectify(
             project_path=project_path,
             img_fname=fname_dict['img'],
@@ -266,7 +239,6 @@ def ldm_upload(project_id_str):
             ground_height=my_drone.ipod_params['ground_height'],
             sensor_width=my_drone.ipod_params['sensor_width']
         )
-
         rectify_time = time.time()
 
         uuid = "test1234"
@@ -275,28 +247,26 @@ def ldm_upload(project_id_str):
             uuid=uuid,
             path=project_path + "/" + fname_dict['img_rectified'],
             name=fname_dict['img'],
+            img_type=img_type,
             tm_eo=[parsed_eo[0], parsed_eo[1]],
             img_boundary=bbox_wkt,
-            objects=detected_objects
+            objects=obj_metadata
         )
-
         metadata_time = time.time()
 
-        print(os.path.join(project_path, fname_dict['img_rectified']))
+        img_metadata_info = json.dumps(img_metadata)
+        #############################################
+        # Send object information to web map viewer #
+        #############################################
+        fmt = '<4si' + str(len(img_metadata_info)) + 's'  # s: string, i: int
+        data_to_send = pack(fmt, b"IPOD", len(img_metadata_info), img_metadata_info.encode())
+        # s1.sendto(data_to_send, dest)
 
+        transmission_time = time.time()
 
-        # # Mago3D에 전송
-        # res = mago3d.upload(
-        #     img_rectified_path=os.path.join(project_path, fname_dict['img_rectified']),
-        #     img_metadata=img_metadata
-        # )
-        # print(res.text)
-
-        mago3d_time = time.time()
-
-        cur_time = "%s\t%f\t%f\t%f\t%f\t%f\n" % (fname_dict['img'], sys_cal_time - start_time,
-                                         inference_time - sys_cal_time, rectify_time - inference_time,
-                                         metadata_time - rectify_time, mago3d_time - metadata_time)
+        cur_time = "%s\t%f\t%f\t%f\t%f\t%f\n" % (fname_dict['img'], preprocess_time - start_time,
+                                                 inference_time - preprocess_time, rectify_time - inference_time,
+                                                 metadata_time - rectify_time, transmission_time - metadata_time)
         f.write(cur_time)
         print(cur_time)
 

@@ -111,3 +111,22 @@ def create_pgw(bbox, gsd, dst):
     f = open(dst + '.pgw', 'w')
     f.write(pgw)
     f.close()
+
+
+def transform_bbox(bbox_coords, rows, cols, pixel_size, focal_length, tm_eo, R_CG, ground_height):
+    x1 = int(round(float(bbox_coords[0])))
+    y1 = int(round(float(bbox_coords[1])))
+    x2 = int(round(float(bbox_coords[2])))
+    y2 = int(round(float(bbox_coords[3])))
+
+    bbox_px = np.array([[x1, x2, x2, x1],
+                        [y1, y1, y2, y2]])
+
+    # Convert pixel coordinate system to camera coordinate system
+    # input params unit: px, px, px, mm/px, mm
+    bbox_camera = pcs2ccs(bbox_px, rows, cols, pixel_size, focal_length * 1000)  # shape: 3 x bbox_point
+
+    # Project camera coordinates to ground coordinates
+    proj_coordinates = projection(bbox_camera, tm_eo, R_CG, ground_height)
+
+    return proj_coordinates
