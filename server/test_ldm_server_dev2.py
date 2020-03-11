@@ -52,17 +52,17 @@ print('connected! - inference')
 #         idx += 1
 #     return image
 
-#########################
-# Client for map viewer #
-#########################
-TCP_IP1 = '192.168.0.5'
-TCP_PORT1 = 57821
-
-s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-# dest = ("192.168.0.5", 57821)
-s1.connect((TCP_IP1, TCP_PORT1))
-print('connected! - viewer')
+# #########################
+# # Client for map viewer #
+# #########################
+# TCP_IP1 = '192.168.0.5'
+# TCP_PORT1 = 57821
+#
+# s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+# # dest = ("192.168.0.5", 57821)
+# s1.connect((TCP_IP1, TCP_PORT1))
+# print('connected! - viewer')
 
 # Initialize flask
 app = Flask(__name__)
@@ -145,7 +145,7 @@ def ldm_upload(project_id_str):
         }
 
         # Check integrity of uploaded files
-        for key in ['img', 'eo']:
+        for key in ['img']:
             if key not in request.files:  # Key check
                 return 'No %s part' % key
             file = request.files[key]
@@ -161,10 +161,12 @@ def ldm_upload(project_id_str):
         # IPOD chain 1: Pre-processing #
         ################################
         print("IPOD chain 1: Pre-processing")
-        print(" * Read EOP...")
-        parsed_eo = my_drone.preprocess_eo_file(os.path.join(project_path, fname_dict['eo']))   # degrees
+        print(" * Metadata extraction...")
+        focal_length, orientation, parsed_eo, maker = get_metadata(os.path.join(project_path, fname_dict["img"]),
+                                                                   "Linux")  # unit: m, _, ndarray, _
+        img_type = 0
         if parsed_eo[2] - my_drone.ipod_params["ground_height"] <= height_threshold:
-            print(" * The height is too low: ", parsed_eo[2] - my_drone.ipod_params["ground_height"], " m")
+            print("  * The height is too low: ", parsed_eo[2] - my_drone.ipod_params["ground_height"], " m")
             return "The height of the image is too low"
 
         if not my_drone.pre_calibrated:
@@ -178,11 +180,6 @@ def ldm_upload(project_id_str):
         transformed_eo = geographic2plane(parsed_eo, epsg)
         R_GC = Rot3D(transformed_eo)
         R_CG = R_GC.T
-
-        print(" * Metadata extraction...")
-        focal_length, orientation, _ = get_metadata(os.path.join(project_path, fname_dict["img"]),
-                                                    "Linux")  # unit: m, _, ndarray
-        img_type = 0
 
         preprocess_time = time.time()
 
@@ -204,9 +201,7 @@ def ldm_upload(project_id_str):
         s.send(string_data)
 
         # Receiving Bbox info
-        data_len = s.recv(16)
-
-        bbox_coords_bytes = s.recv(int(data_len))
+        bbox_coords_bytes = s.recv(65534)
         bbox_coords = json.loads(bbox_coords_bytes)
         print("received!")
         ####################################
@@ -268,8 +263,7 @@ def ldm_upload(project_id_str):
         #############################################
         fmt = '<4si' + str(len(img_metadata_info)) + 's'  # s: string, i: int
         data_to_send = pack(fmt, b"IPOD", len(img_metadata_info), img_metadata_info.encode())
-        # s1.sendto(data_to_send, dest)
-        s1.send(data_to_send)
+        # s1.send(data_to_send)
 
         transmission_time = time.time()
 

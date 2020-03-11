@@ -41,6 +41,17 @@ class Livedronemap:
             except Exception as e:
                 return e
 
+    def ldm_upload2(self, img_fname):
+        if self.current_project_id is not None:
+            try:
+                files = {
+                    'img': open(img_fname, 'rb')
+                }
+                r = requests.post(self.url + 'ldm_upload/' + self.current_project_id, files=files)
+                return r
+            except Exception as e:
+                return e
+
 
 if __name__ == '__main__':
     livedronemap = Livedronemap('http://127.0.0.1:5000/')

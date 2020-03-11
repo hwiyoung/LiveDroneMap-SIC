@@ -98,48 +98,23 @@ def rectify(project_path, img_fname, img_rectified_fname, eo, ground_height, sen
     bbox_wkt = export_bbox_to_wkt2(bbox, dst="")
     return bbox_wkt
 
-def rectify2(project_path, img_fname, img_rectified_fname, eo, ground_height, sensor_width, gsd='auto'):
+
+def rectify2(project_path, img_fname, restored_image, focal_length, pixel_size,
+             eo, R_GC, ground_height, epsg, gsd='auto'):
     #TODO: Check the params
 
-    epsg = 3857
+    rectify_time = time.time()
 
-    # rectified_full_fname = data_store + project_path + rectified_fname
-
-    img_path = os.path.join(project_path, img_fname)
-
-    print('Read the image - ' + img_fname)
-    start_time = time.time()
-    image = cv2.imread(img_path)
-
-    # 0. Extract EXIF data from a image
-    focal_length, orientation = getExif(img_path)  # unit: m
-
-    # 1. Restore the image based on orientation information
-    restored_image = restoreOrientation(image, orientation)
-
-    image_rows = restored_image.shape[0]
-    image_cols = restored_image.shape[1]
-
-    pixel_size = sensor_width / image_cols  # unit: mm/px
-    pixel_size = pixel_size / 1000  # unit: m/px
-
-    end_time = time.time()
-    print("--- %s seconds ---" % (time.time() - start_time))
-
-    read_time = end_time - start_time
-
-    print('Read EOP - ' + img_fname)
-    print('Easting | Northing | Height | Omega | Phi | Kappa')
-    converted_eo = geographic2plane(eo, epsg)
-    print(converted_eo)
-    R = Rot3D(converted_eo)
+    dst = os.path.join(project_path, img_fname.split(".")[0])
 
     # 2. Extract a projected boundary of the image
-    bbox = boundary(restored_image, converted_eo, R, ground_height, pixel_size, focal_length)
+    print('boundary')
+    start_time = time.time()
+    bbox = boundary(restored_image, eo, R_GC, ground_height, pixel_size, focal_length)
     print("--- %s seconds ---" % (time.time() - start_time))
 
     if gsd == 'auto':
-        gsd = (pixel_size * (converted_eo[2] - ground_height)) / focal_length  # unit: m/px
+        gsd = (pixel_size * (eo[2] - ground_height)) / focal_length  # unit: m/px
 
     # Boundary size
     boundary_cols = int((bbox[1, 0] - bbox[0, 0]) / gsd)
@@ -147,7 +122,7 @@ def rectify2(project_path, img_fname, img_rectified_fname, eo, ground_height, se
 
     print('projectedCoord')
     start_time = time.time()
-    proj_coords = projectedCoord(bbox, boundary_rows, boundary_cols, gsd, converted_eo, ground_height)
+    proj_coords = projectedCoord(bbox, boundary_rows, boundary_cols, gsd, eo, ground_height)
     print("--- %s seconds ---" % (time.time() - start_time))
 
     # Image size
@@ -155,7 +130,7 @@ def rectify2(project_path, img_fname, img_rectified_fname, eo, ground_height, se
 
     print('backProjection')
     start_time = time.time()
-    backProj_coords = backProjection(proj_coords, R, focal_length, pixel_size, image_size)
+    backProj_coords = backProjection(proj_coords, R_GC, focal_length, pixel_size, image_size)
     print("--- %s seconds ---" % (time.time() - start_time))
 
     print('resample')
@@ -163,14 +138,13 @@ def rectify2(project_path, img_fname, img_rectified_fname, eo, ground_height, se
     b, g, r, a = resample(backProj_coords, boundary_rows, boundary_cols, restored_image)
     print("--- %s seconds ---" % (time.time() - start_time))
 
-    print('Save the image in GeoTiff')
+    print('Save the image in png')
     start_time = time.time()
-    dst = os.path.join(project_path, img_fname.split(".")[0])
     create_pnga(b, g, r, a, bbox, gsd, epsg, dst)
     print("--- %s seconds ---" % (time.time() - start_time))
 
     print('*** Processing time per each image')
-    print("--- %s seconds ---" % (time.time() - start_time + read_time))
+    print("--- %s seconds ---" % (time.time() - rectify_time))
 
     bbox_wkt = export_bbox_to_wkt2(bbox, dst="")
     return bbox_wkt

@@ -8,7 +8,6 @@ import os
 from watchdog.observers.polling import PollingObserver
 
 image_list = []
-eo_list = []
 
 ldm = Livedronemap(Config.LDM_ADDRESS)
 project_id = ldm.create_project(Config.LDM_PROJECT_NAME)
@@ -17,10 +16,9 @@ ldm.set_current_project(project_id)
 print('Current project ID: %s' % project_id)
 
 
-def upload_data(image_fname, eo_fname):
-    result = ldm.ldm_upload(image_fname, eo_fname)
-    print('response from LDM server:')
-    print(result)
+def upload_data(image_fname):
+    result = ldm.ldm_upload2(image_fname)
+    print('response from LDM server:', result)
 
 
 class Watcher:
@@ -54,26 +52,10 @@ class Handler(FileSystemEventHandler):
             if Config.IMAGE_FILE_EXT in extension_name:
                 image_list.append(file_name)
                 time.sleep(2)
-                eo_dict = extract_eo(event.src_path, Config.CAMERA_MANUFACTURER)
-                with open(file_name + '.' + Config.EO_FILE_EXT, 'w') as f:
-                    eo_file_data = file_name.split('/')[-1] + '.' + Config.IMAGE_FILE_EXT + '\t' + \
-                                   str(eo_dict['longitude']) + '\t' + \
-                                   str(eo_dict['latitude']) + '\t' + \
-                                   str(eo_dict['altitude']) + '\t' + \
-                                   str(eo_dict['roll']) + '\t' + \
-                                   str(eo_dict['pitch']) + '\t' + \
-                                   str(eo_dict['yaw']) + '\t'
-                    print('EO data:')
-                    print(eo_file_data)
-                    f.write(eo_file_data)
-                eo_list.append(file_name + Config.EO_FILE_EXT)
                 print('uploading data...')
-                upload_data(
-                    event.src_path,
-                    file_name + '.' + Config.EO_FILE_EXT
-                )
+                upload_data(event.src_path)
             else:
-                print('But it is not an image file.')
+                print('Not allowed extension of an image')
             print('===========================================================')
 
 
