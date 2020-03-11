@@ -195,10 +195,10 @@ def ldm_upload(project_id_str):
         ####################################
         # Send the image to inference server
         print("start sending...")
-        img_shape = json.dumps(img.shape[:2]).encode('utf-8').ljust(16)
         string_data = restored_img.tostring()
-        s.send(img_shape)
-        s.send(string_data)
+        hei, wid, _ = restored_img.shape
+        header = pack('>2s2H', b'st', wid, hei)
+        s.send(header + string_data)
 
         # Receiving Bbox info
         bbox_coords_bytes = s.recv(65534)

@@ -102,6 +102,20 @@ def rectify(project_path, img_fname, img_rectified_fname, eo, ground_height, sen
 def rectify2(project_path, img_fname, restored_image, focal_length, pixel_size,
              eo, R_GC, ground_height, epsg, gsd='auto'):
     #TODO: Check the params
+    """
+    Rectifies a given drone image on a reference plane
+    :param project_path:
+    :param img_fname:
+    :param restored_image:
+    :param focal_length:
+    :param pixel_size:
+    :param eo:
+    :param R_GC:
+    :param ground_height:
+    :param epsg:
+    :param gsd:
+    :return: Boundary box of a generated orthophoto in wkt format
+    """
 
     rectify_time = time.time()
 
