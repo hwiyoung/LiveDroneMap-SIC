@@ -229,7 +229,7 @@ def ldm_upload(project_id_str):
         ##################################################
         fname_dict['img_rectified'] = fname_dict['img'].split('.')[0] + '.png'
         bbox_wkt = rectify2(
-            output_path=config_watchdog.BaseConfig.DIRECTORY_TO_WATCH,
+            output_path=config_watchdog.BaseConfig.DIRECTORY_FOR_OUTPUT,
             img_fname=fname_dict['img'],
             restored_image=restored_img,
             focal_length=focal_length,
@@ -244,7 +244,7 @@ def ldm_upload(project_id_str):
         # Generate metadata for InnoMapViewer
         img_metadata = create_img_metadata_udp(
             uuid=uuid,
-            path=os.path.join(config_watchdog.BaseConfig.DIRECTORY_TO_WATCH, fname_dict['img_rectified']),
+            path=os.path.join(config_watchdog.BaseConfig.DIRECTORY_FOR_OUTPUT, fname_dict['img_rectified']),
             name=fname_dict['img'],
             img_type=img_type,
             tm_eo=[parsed_eo[0], parsed_eo[1]],

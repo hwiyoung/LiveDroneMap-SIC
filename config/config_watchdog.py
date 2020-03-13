@@ -2,7 +2,7 @@ class BaseConfig:
     LDM_ADDRESS = 'http://127.0.0.1:30011/'
     MAGO3D_ADDRESS = 'http://ys.innopam.com:20080/'
     LDM_PROJECT_NAME = 'SIC-tutorial'
-    DIRECTORY_IMAGE_CHECK = "/internalCompany/PM2019006_Jeju/191009"
+    DIRECTORY_FOR_OUTPUT = "/internalCompany/P2019.SeoulChallenge/00_output"
     # DIRECTORY_TO_WATCH = "/internalCompany/P2019.SeoulChallenge/test_dir_watch"
     DIRECTORY_TO_WATCH = "/internalCompany/P2019.SeoulChallenge/00_drone"
     # DIRECTORY_IMAGE_CHECK = 'drone/examples'
