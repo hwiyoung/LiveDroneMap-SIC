@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 from PIL import Image
 import subprocess
-import platform
 from pyexiv2 import metadata
 
 def getExif(path):
@@ -67,7 +66,8 @@ def get_metadata(input_file, os_name):
 
         focal_length = convert_fractions_to_float(meta['Exif.Photo.FocalLength'].value) / 1000  # unit: m
         orientation = meta['Exif.Image.Orientation'].value
-        maker = meta["Exif.Image.Make"].raw_value
+        uuid = meta['Xmp.DLS.FrameID'].value
+        maker = meta["Exif.Image.Make"].value
 
         longitude = convert_dms_to_deg(meta["Exif.GPSInfo.GPSLongitude"].value)
         latitude = convert_dms_to_deg(meta["Exif.GPSInfo.GPSLatitude"].value)
@@ -179,7 +179,7 @@ def get_metadata(input_file, os_name):
 
         eo = np.array([lon_value, lat_value, alt_value, roll_value, pitch_value, yaw_value])
 
-    return focal_length, orientation, eo, maker
+    return focal_length, orientation, eo, uuid, maker
 
 def convert_fractions_to_float(fraction):
     return fraction.numerator / fraction.denominator

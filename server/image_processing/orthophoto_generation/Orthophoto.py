@@ -99,27 +99,26 @@ def rectify(project_path, img_fname, img_rectified_fname, eo, ground_height, sen
     return bbox_wkt
 
 
-def rectify2(project_path, img_fname, restored_image, focal_length, pixel_size,
+def rectify2(output_path, img_fname, restored_image, focal_length, pixel_size,
              eo, R_GC, ground_height, epsg, gsd='auto'):
-    #TODO: Check the params
     """
     Rectifies a given drone image on a reference plane
-    :param project_path:
-    :param img_fname:
-    :param restored_image:
-    :param focal_length:
-    :param pixel_size:
-    :param eo:
-    :param R_GC:
-    :param ground_height:
-    :param epsg:
-    :param gsd:
+    :param output_path: A path which an individual orthophoto will be generated
+    :param img_fname: A name of raw image
+    :param restored_image: Numpy array of an image which orientation were restored
+    :param focal_length: A focal length of a raw image
+    :param pixel_size: A pixel size of a raw image
+    :param eo: EOP of raw image - [x, y, z, o, p, k]
+    :param R_GC: Rotation matrix from Ground to Camera
+    :param ground_height: A height of ground which a drone is launched
+    :param epsg: An EPSG number of a coordinate system of a generated individual orthophoto
+    :param gsd: Ground Sampling Distance of a raw image
     :return: Boundary box of a generated orthophoto in wkt format
     """
 
     rectify_time = time.time()
 
-    dst = os.path.join(project_path, img_fname.split(".")[0])
+    dst = os.path.join(output_path, img_fname.split(".")[0])
 
     # 2. Extract a projected boundary of the image
     print('boundary')

@@ -9,20 +9,15 @@ from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request
 from werkzeug.utils import secure_filename
 
-from config import config_flask
+from config import config_flask, config_watchdog
 from server.image_processing.img_metadata_generation import create_img_metadata_udp, create_obj_metadata
 from clients.webodm import WebODM
 from clients.mago3d import Mago3D
 
-from server.image_processing.orthophoto_generation.Orthophoto import rectify, rectify2
-from server.image_processing.orthophoto_generation.ExifData import get_metadata
-from server.image_processing.orthophoto_generation.EoData import rpy_to_opk, geographic2plane
+from server.image_processing.orthophoto_generation.Orthophoto import rectify2
+from server.image_processing.orthophoto_generation.ExifData import get_metadata, restoreOrientation
+from server.image_processing.orthophoto_generation.EoData import rpy_to_opk_smartphone, geographic2plane, Rot3D
 from server.image_processing.orthophoto_generation.Boundary import transform_bbox
-
-# Convert pixel bbox to world bbox
-from server.image_processing.orthophoto_generation.Boundary import pcs2ccs, projection
-from server.image_processing.orthophoto_generation.EoData import Rot3D, latlon2tmcentral, tmcentral2latlon
-from server.image_processing.orthophoto_generation.ExifData import getExif, restoreOrientation
 
 from struct import *
 
@@ -52,17 +47,17 @@ print('connected! - inference')
 #         idx += 1
 #     return image
 
-# #########################
-# # Client for map viewer #
-# #########################
-# TCP_IP1 = '192.168.0.5'
-# TCP_PORT1 = 57821
-#
-# s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-# # dest = ("192.168.0.5", 57821)
-# s1.connect((TCP_IP1, TCP_PORT1))
-# print('connected! - viewer')
+#########################
+# Client for map viewer #
+#########################
+TCP_IP1 = '192.168.0.5'
+TCP_PORT1 = 57821
+
+s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+# dest = ("192.168.0.5", 57821)
+s1.connect((TCP_IP1, TCP_PORT1))
+print('connected! - viewer')
 
 # Initialize flask
 app = Flask(__name__)
@@ -81,8 +76,8 @@ mago3d = Mago3D(
 height_threshold = 100
 epsg = 3857
 
-from server.my_drones import DJIMavic
-my_drone = DJIMavic(pre_calibrated=False)
+from server.my_drones import GalaxyS10_SIC
+my_drone = GalaxyS10_SIC(pre_calibrated=False)
 
 def allowed_file(fname):
     return '.' in fname and fname.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
@@ -111,7 +106,7 @@ def project():
         # Using the assigned ID, ldm makes a new folder to projects directory
         new_project_dir = os.path.join(app.config['UPLOAD_FOLDER'], project_id)
         os.mkdir(new_project_dir)
-        os.mkdir(os.path.join(new_project_dir, 'rectified'))
+        # os.mkdir(os.path.join(new_project_dir, 'rectified'))
 
         # LDM returns the project ID that Mago3D assigned
         return project_id
@@ -153,7 +148,7 @@ def ldm_upload(project_id_str):
                 return 'No selected file'
             if file and allowed_file(file.filename):  # If the keys and corresponding values are OK
                 fname_dict[key] = secure_filename(file.filename)
-                file.save(os.path.join(project_path, fname_dict[key]))  # 클라이언트로부터 전송받은 파일을 저장한다.
+                file.save(os.path.join(project_path, fname_dict[key]))  # Save the file from client
             else:
                 return 'Failed to save the uploaded files'
 
@@ -162,16 +157,18 @@ def ldm_upload(project_id_str):
         ################################
         print("IPOD chain 1: Pre-processing")
         print(" * Metadata extraction...")
-        focal_length, orientation, parsed_eo, maker = get_metadata(os.path.join(project_path, fname_dict["img"]),
+        focal_length, orientation, parsed_eo, uuid, maker = get_metadata(os.path.join(project_path, fname_dict["img"]),
                                                                    "Linux")  # unit: m, _, ndarray, _
+        # TODO: Have to implement a method to extinguish the image type
         img_type = 0
+
         if parsed_eo[2] - my_drone.ipod_params["ground_height"] <= height_threshold:
             print("  * The height is too low: ", parsed_eo[2] - my_drone.ipod_params["ground_height"], " m")
             return "The height of the image is too low"
 
         if not my_drone.pre_calibrated:
             print(' * System calibration...')
-            opk = rpy_to_opk(parsed_eo[3:])
+            opk = rpy_to_opk_smartphone(parsed_eo[3:])
             parsed_eo[3:] = opk * np.pi / 180  # degree to radian
             if abs(opk[0]) > 0.175 or abs(opk[1]) > 0.175:
                 print('Too much omega/phi will kill you')
@@ -230,9 +227,9 @@ def ldm_upload(project_id_str):
         ##################################################
         # IPOD chain 3: Individual orthophoto generation #
         ##################################################
-        fname_dict['img_rectified'] = fname_dict['img'].split('.')[0] + '.tif'
+        fname_dict['img_rectified'] = fname_dict['img'].split('.')[0] + '.png'
         bbox_wkt = rectify2(
-            project_path=project_path,
+            output_path=config_watchdog.BaseConfig.DIRECTORY_TO_WATCH,
             img_fname=fname_dict['img'],
             restored_image=restored_img,
             focal_length=focal_length,
@@ -244,11 +241,10 @@ def ldm_upload(project_id_str):
         )
         rectify_time = time.time()
 
-        uuid = "test1234"
         # Generate metadata for InnoMapViewer
         img_metadata = create_img_metadata_udp(
             uuid=uuid,
-            path=project_path + "/" + fname_dict['img_rectified'],
+            path=os.path.join(config_watchdog.BaseConfig.DIRECTORY_TO_WATCH, fname_dict['img_rectified']),
             name=fname_dict['img'],
             img_type=img_type,
             tm_eo=[parsed_eo[0], parsed_eo[1]],
@@ -263,7 +259,7 @@ def ldm_upload(project_id_str):
         #############################################
         fmt = '<4si' + str(len(img_metadata_info)) + 's'  # s: string, i: int
         data_to_send = pack(fmt, b"IPOD", len(img_metadata_info), img_metadata_info.encode())
-        # s1.send(data_to_send)
+        s1.send(data_to_send)
 
         transmission_time = time.time()
 
