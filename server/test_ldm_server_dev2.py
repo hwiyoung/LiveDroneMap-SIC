@@ -73,7 +73,8 @@ mago3d = Mago3D(
     api_key=app.config['MAGO3D_CONFIG']['api_key']
 )
 
-height_threshold = 100
+height_threshold = 50
+omega_phi_threshold = np.pi / 180 * 20
 epsg = 3857
 
 from server.my_drones import GalaxyS10_SIC
@@ -157,8 +158,8 @@ def ldm_upload(project_id_str):
         ################################
         print("IPOD chain 1: Pre-processing")
         print(" * Metadata extraction...")
-        focal_length, orientation, parsed_eo, uuid, maker = get_metadata(os.path.join(project_path, fname_dict["img"]),
-                                                                   "Linux")  # unit: m, _, ndarray, _
+        focal_length, orientation, parsed_eo, uuid, task_id, maker = get_metadata(os.path.join(project_path, fname_dict["img"]),
+                                                                                  "Linux")  # unit: m, _, ndarray, _
         # TODO: Have to implement a method to extinguish the image type
         img_type = 0
 
@@ -170,7 +171,7 @@ def ldm_upload(project_id_str):
             print(' * System calibration...')
             opk = rpy_to_opk_smartphone(parsed_eo[3:])
             parsed_eo[3:] = opk * np.pi / 180  # degree to radian
-            if abs(opk[0]) > 0.175 or abs(opk[1]) > 0.175:
+            if abs(opk[0]) > omega_phi_threshold or abs(opk[1]) > omega_phi_threshold:
                 print('Too much omega/phi will kill you')
                 return 'Too much omega/phi will kill you'
 
@@ -244,6 +245,7 @@ def ldm_upload(project_id_str):
         # Generate metadata for InnoMapViewer
         img_metadata = create_img_metadata_udp(
             uuid=uuid,
+            task_id=task_id,
             path=os.path.join(config_watchdog.BaseConfig.DIRECTORY_FOR_OUTPUT, fname_dict['img_rectified']),
             name=fname_dict['img'],
             img_type=img_type,

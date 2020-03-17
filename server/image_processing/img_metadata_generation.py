@@ -25,10 +25,11 @@ def create_img_metadata(drone_project_id, data_type, file_name, detected_objects
     return img_metadata
 
 
-def create_img_metadata_udp(uuid, path, name, img_type, tm_eo, img_boundary, objects):
+def create_img_metadata_udp(uuid, task_id, path, name, img_type, tm_eo, img_boundary, objects):
     """
     Create a metadata of an orthophoto for udp transmission
     :param uuid: uuid of the image | string
+    :param uuid: task id of the image | string
     :param path: A path of a generated orthophoto | string
     :param name: A name of the original image | string
     :param img_type: A type of the image - optical(0)/thermal(1) | int
@@ -39,6 +40,7 @@ def create_img_metadata_udp(uuid, path, name, img_type, tm_eo, img_boundary, obj
     """
     img_metadata = {
         "uid": uuid,    # string
+        "task_id": task_id,  # string
         "path": path,   # string
         "img_name": name,   # string
         "img_type": img_type,   # int

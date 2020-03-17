@@ -67,6 +67,7 @@ def get_metadata(input_file, os_name):
         focal_length = convert_fractions_to_float(meta['Exif.Photo.FocalLength'].value) / 1000  # unit: m
         orientation = meta['Exif.Image.Orientation'].value
         uuid = meta['Xmp.DLS.FrameID'].value
+        task_id = meta['Xmp.DLS.TaskID'].value
         maker = meta["Exif.Image.Make"].value
 
         longitude = convert_dms_to_deg(meta["Exif.GPSInfo.GPSLongitude"].value)
@@ -78,6 +79,11 @@ def get_metadata(input_file, os_name):
             pitch = float(meta['Xmp.drone-dji.GimbalPitchDegree'].value)
             yaw = float(meta['Xmp.drone-dji.GimbalYawDegree'].value)
         elif maker == "samsung":
+            altitude = convert_fractions_to_float(meta['Exif.GPSInfo.GPSAltitude'].value)
+            roll = float(meta['Xmp.DLS.Roll'].value) * 180 / np.pi
+            pitch = float(meta['Xmp.DLS.Pitch'].value) * 180 / np.pi
+            yaw = float(meta['Xmp.DLS.Yaw'].value) * 180 / np.pi
+        elif maker == "LGE":
             altitude = convert_fractions_to_float(meta['Exif.GPSInfo.GPSAltitude'].value)
             roll = float(meta['Xmp.DLS.Roll'].value) * 180 / np.pi
             pitch = float(meta['Xmp.DLS.Pitch'].value) * 180 / np.pi
@@ -179,7 +185,7 @@ def get_metadata(input_file, os_name):
 
         eo = np.array([lon_value, lat_value, alt_value, roll_value, pitch_value, yaw_value])
 
-    return focal_length, orientation, eo, uuid, maker
+    return focal_length, orientation, eo, uuid, task_id, maker
 
 def convert_fractions_to_float(fraction):
     return fraction.numerator / fraction.denominator
