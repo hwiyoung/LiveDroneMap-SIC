@@ -143,5 +143,6 @@ def rpy_to_opk_smartphone(smartphone_rpy):
     roll_pitch[1] = -smartphone_rpy[0]
 
     omega_phi = np.dot(rot_2d(smartphone_rpy[2] * np.pi / 180), roll_pitch.reshape(2, 1))
-    kappa = -smartphone_rpy[2]-90
+    # kappa = -smartphone_rpy[2]-90
+    kappa = -smartphone_rpy[2] - 270
     return np.array([float(omega_phi[0, 0]), float(omega_phi[1, 0]), kappa])

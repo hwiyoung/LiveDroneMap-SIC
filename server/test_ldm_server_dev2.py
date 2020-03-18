@@ -74,7 +74,7 @@ mago3d = Mago3D(
 )
 
 height_threshold = 50
-omega_phi_threshold = np.pi / 180 * 20
+omega_phi_threshold = np.pi / 180 * 50
 epsg = 3857
 
 from server.my_drones import GalaxyS10_SIC
@@ -171,9 +171,9 @@ def ldm_upload(project_id_str):
             print(' * System calibration...')
             opk = rpy_to_opk_smartphone(parsed_eo[3:])
             parsed_eo[3:] = opk * np.pi / 180  # degree to radian
-            if abs(opk[0]) > omega_phi_threshold or abs(opk[1]) > omega_phi_threshold:
-                print('Too much omega/phi will kill you')
-                return 'Too much omega/phi will kill you'
+            # if abs(opk[0]) > omega_phi_threshold or abs(opk[1]) > omega_phi_threshold:
+            #     print('Too much omega/phi will kill you')
+            #     return 'Too much omega/phi will kill you'
 
         transformed_eo = geographic2plane(parsed_eo, epsg)
         R_GC = Rot3D(transformed_eo)

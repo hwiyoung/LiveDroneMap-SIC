@@ -103,10 +103,30 @@ class GalaxyS10_SIC(BaseDrone):
             "sensor_width": 5.75,      # mm
             'focal_length': 0.00432,   # m
             'gsd': 'auto',
-            'ground_height': 32.425,  # m
+            # 'ground_height': 32.425,  # m, Yongsan
+            'ground_height': 33.5,  # m, KAU
             "R_CB": np.array(
                 [[0.992103011532570, -0.0478682839576757, -0.115932057253170],
                  [0.0636038625107261, 0.988653550290218, 0.136083452970098],
                  [0.108102558627082, -0.142382530141501, 0.983890772356761]], dtype=float)
         }
         self.pre_calibrated = pre_calibrated
+
+    def preprocess_eo_file(self, eo_path):
+        eo_line = np.genfromtxt(
+            eo_path,
+            delimiter='\t',
+            dtype={
+                'names': ('Image', 'Longitude', 'Latitude', 'Altitude', 'Yaw', 'Pitch', 'Roll'),
+                'formats': ('U15', '<f8', '<f8', '<f8', '<f8', '<f8', '<f8')
+            }
+        )
+
+        eo_line['Roll'] = eo_line['Roll'] * math.pi / 180
+        eo_line['Pitch'] = eo_line['Pitch'] * math.pi / 180
+        eo_line['Yaw'] = eo_line['Yaw'] * math.pi / 180
+
+        parsed_eo = [float(eo_line['Longitude']), float(eo_line['Latitude']), float(eo_line['Altitude']),
+                     float(eo_line['Roll']), float(eo_line['Pitch']), float(eo_line['Yaw'])]
+
+        return parsed_eo
