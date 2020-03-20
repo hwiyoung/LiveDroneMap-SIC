@@ -32,6 +32,16 @@ s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 s.connect((TCP_IP, TCP_PORT))
 print('connected! - inference')
 
+def recvall(sock,headersize):
+    buf = b''
+    header = unpack('>H',sock.recv(headersize)) # 'st'(2byte)+ length(4byte)
+    count = header[0]
+    while count:
+        newbuf = sock.recv(count)
+        if not newbuf: return None
+        buf += newbuf
+        count -= len(newbuf)
+    return buf
 # def highlighting_bbox(image,bbox):
 #     idx = 0
 #     blue = (255, 0, 0)
@@ -211,8 +221,10 @@ def ldm_upload(project_id_str):
         s.send(header + string_data)
 
         # Receiving Bbox info
-        bbox_coords_bytes = s.recv(65534)
+        bbox_coords_bytes = recvall(s, 2)
         bbox_coords = json.loads(bbox_coords_bytes)
+        # bbox_coords_bytes = s.recv(65534)
+        # bbox_coords = json.loads(bbox_coords_bytes)
         print("received!")
         ####################################
 
