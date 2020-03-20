@@ -146,3 +146,10 @@ def rpy_to_opk_smartphone(smartphone_rpy):
     kappa = -smartphone_rpy[2] - 90     # Test_Yongsan
     # kappa = -smartphone_rpy[2] - 270    # KAU
     return np.array([float(omega_phi[0, 0]), float(omega_phi[1, 0]), kappa])
+
+def kappa_from_location_diff(eo, before_eo):
+    delta_x = eo[0] - before_eo[0]
+    delta_y = eo[1] - before_eo[1]
+    theta = np.arctan2(delta_y, delta_x) * 180 / np.pi
+    kappa = 270 + theta + 90    # KAU
+    return kappa

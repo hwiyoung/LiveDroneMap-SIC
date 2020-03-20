@@ -70,8 +70,10 @@ def get_metadata(input_file, os_name):
         task_id = meta['Xmp.DLS.TaskID'].value
         maker = meta["Exif.Image.Make"].value
 
-        longitude = convert_dms_to_deg(meta["Exif.GPSInfo.GPSLongitude"].value)
-        latitude = convert_dms_to_deg(meta["Exif.GPSInfo.GPSLatitude"].value)
+        # longitude = convert_dms_to_deg(meta["Exif.GPSInfo.GPSLongitude"].value)
+        # latitude = convert_dms_to_deg(meta["Exif.GPSInfo.GPSLatitude"].value)
+        longitude = float(meta["Xmp.DLS.GPSLongitude"].value)
+        latitude = float(meta["Xmp.DLS.GPSLatitude"].value)
 
         if maker == "DJI":
             altitude = float(meta['Xmp.drone-dji.RelativeAltitude'].value)
@@ -83,17 +85,26 @@ def get_metadata(input_file, os_name):
             roll = float(meta['Xmp.DLS.Roll'].value) * 180 / np.pi
             pitch = float(meta['Xmp.DLS.Pitch'].value) * 180 / np.pi
             yaw = float(meta['Xmp.DLS.Yaw'].value) * 180 / np.pi
+
+            before_longitude = float(meta["Xmp.DLS.BeforeGPSLongitude"].value)
+            before_latitude = float(meta["Xmp.DLS.BeforeGPSLatitude"].value)
+            # before_altitude = float(meta["Xmp.DLS.BeforeGPSAltitude"].value)
         elif maker == "LGE":
             altitude = convert_fractions_to_float(meta['Exif.GPSInfo.GPSAltitude'].value)
             roll = float(meta['Xmp.DLS.Roll'].value) * 180 / np.pi
             pitch = float(meta['Xmp.DLS.Pitch'].value) * 180 / np.pi
             yaw = float(meta['Xmp.DLS.Yaw'].value) * 180 / np.pi
+
+            before_longitude = float(meta["Xmp.DLS.BeforeGPSLongitude"].value)
+            before_latitude = float(meta["Xmp.DLS.BeforeGPSLatitude"].value)
+            # before_altitude = float(meta["Xmp.DLS.BeforeGPSAltitude"].value)
         else:
             altitude = 0
             roll = 0
             pitch = 0
             yaw = 0
 
+        before_lonlat = np.array([before_longitude, before_latitude])
         eo = np.array([longitude, latitude, altitude, roll, pitch, yaw])
     else:
         exe = "exiftool.exe"
@@ -185,7 +196,7 @@ def get_metadata(input_file, os_name):
 
         eo = np.array([lon_value, lat_value, alt_value, roll_value, pitch_value, yaw_value])
 
-    return focal_length, orientation, eo, uuid, task_id, maker
+    return focal_length, orientation, eo, before_lonlat, uuid, task_id, maker
 
 def convert_fractions_to_float(fraction):
     return fraction.numerator / fraction.denominator

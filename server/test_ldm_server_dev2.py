@@ -16,7 +16,8 @@ from clients.mago3d import Mago3D
 
 from server.image_processing.orthophoto_generation.Orthophoto import rectify2
 from server.image_processing.orthophoto_generation.ExifData import get_metadata, restoreOrientation
-from server.image_processing.orthophoto_generation.EoData import rpy_to_opk_smartphone, geographic2plane, Rot3D
+from server.image_processing.orthophoto_generation.EoData import rpy_to_opk_smartphone, geographic2plane, \
+                                                                 Rot3D, kappa_from_location_diff
 from server.image_processing.orthophoto_generation.Boundary import transform_bbox
 
 from struct import *
@@ -47,17 +48,17 @@ print('connected! - inference')
 #         idx += 1
 #     return image
 
-#########################
-# Client for map viewer #
-#########################
-TCP_IP1 = '192.168.0.5'
-TCP_PORT1 = 57821
-
-s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-# dest = ("192.168.0.5", 57821)
-s1.connect((TCP_IP1, TCP_PORT1))
-print('connected! - viewer')
+# #########################
+# # Client for map viewer #
+# #########################
+# TCP_IP1 = '192.168.0.5'
+# TCP_PORT1 = 57821
+#
+# s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+# # dest = ("192.168.0.5", 57821)
+# s1.connect((TCP_IP1, TCP_PORT1))
+# print('connected! - viewer')
 
 # Initialize flask
 app = Flask(__name__)
@@ -158,8 +159,9 @@ def ldm_upload(project_id_str):
         ################################
         print("IPOD chain 1: Pre-processing")
         print(" * Metadata extraction...")
-        focal_length, orientation, parsed_eo, uuid, task_id, maker = get_metadata(os.path.join(project_path, fname_dict["img"]),
-                                                                                  "Linux")  # unit: m, _, ndarray, _
+        focal_length, orientation, parsed_eo, before_lonlat, \
+        uuid, task_id, maker = get_metadata(os.path.join(project_path, fname_dict["img"]),
+                                            "Linux")  # unit: m, _, deg, deg, _, _, _
         # TODO: Have to implement a method to extinguish the image type
         img_type = 0
 
@@ -169,13 +171,23 @@ def ldm_upload(project_id_str):
 
         if not my_drone.pre_calibrated:
             print(' * System calibration...')
-            opk = rpy_to_opk_smartphone(parsed_eo[3:])
-            parsed_eo[3:] = opk * np.pi / 180  # degree to radian
+            transformed_eo = geographic2plane(parsed_eo, epsg)
+
+            # # Sensor
+            # opk = rpy_to_opk_smartphone(transformed_eo[3:])
+            # transformed_eo[3:] = opk * np.pi / 180  # degree to radian
+
+            # Location
+            before_xy = geographic2plane(before_lonlat, epsg)
+            opk = np.empty(3)
+            opk[0:2] = 0
+            opk[-1] = kappa_from_location_diff(transformed_eo, before_xy)
+            transformed_eo[3:] = opk * np.pi / 180  # degree to radian
+
             # if abs(opk[0]) > omega_phi_threshold or abs(opk[1]) > omega_phi_threshold:
             #     print('Too much omega/phi will kill you')
             #     return 'Too much omega/phi will kill you'
 
-        transformed_eo = geographic2plane(parsed_eo, epsg)
         R_GC = Rot3D(transformed_eo)
         R_CG = R_GC.T
 
