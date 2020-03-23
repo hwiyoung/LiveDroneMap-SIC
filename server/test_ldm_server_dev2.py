@@ -34,7 +34,7 @@ print('connected! - inference')
 
 def recvall(sock,headersize):
     buf = b''
-    header = unpack('>H',sock.recv(headersize)) # 'st'(2byte)+ length(4byte)
+    header = unpack('>H',sock.recv(headersize)) # length(4byte) + data
     count = header[0]
     while count:
         newbuf = sock.recv(count)
@@ -42,33 +42,34 @@ def recvall(sock,headersize):
         buf += newbuf
         count -= len(newbuf)
     return buf
-# def highlighting_bbox(image,bbox):
-#     idx = 0
-#     blue = (255, 0, 0)
-#     green = (0, 255, 0)
-#     red = (0, 0, 255)
-#     black = (0, 0, 0)
-#     purple = (128,0,128)
-#     notorange = (255,127,80)
-#     object_color = {1: blue, 2: green, 3: black, 4: red, 5: purple, 6: notorange}
-#     for object_id in bbox[4]:
-#         if object_id == 6:
-#             test = 0
-#         image = cv2.rectangle(image, (bbox[0][idx] - 5, bbox[1][idx] - 5), (bbox[2][idx] + 5, bbox[3][idx] + 5), object_color[object_id], 5)
-#         idx += 1
-#     return image
 
-# #########################
-# # Client for map viewer #
-# #########################
-# TCP_IP1 = '192.168.0.5'
-# TCP_PORT1 = 57821
-#
-# s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-# # dest = ("192.168.0.5", 57821)
-# s1.connect((TCP_IP1, TCP_PORT1))
-# print('connected! - viewer')
+def highlighting_bbox(image,bbox):
+    idx = 0
+    blue = (255, 0, 0)
+    green = (0, 255, 0)
+    red = (0, 0, 255)
+    black = (0, 0, 0)
+    purple = (128,0,128)
+    notorange = (255,127,80)
+    object_color = {1: blue, 2: green, 3: black, 4: red, 5: purple, 6: notorange}
+    for object_id in bbox[4]:
+        if object_id == 6:
+            test = 0
+        image = cv2.rectangle(image, (bbox[0][idx] - 5, bbox[1][idx] - 5), (bbox[2][idx] + 5, bbox[3][idx] + 5), object_color[object_id], 5)
+        idx += 1
+    return image
+
+#########################
+# Client for map viewer #
+#########################
+TCP_IP1 = '192.168.0.5'
+TCP_PORT1 = 57821
+
+s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+# dest = ("192.168.0.5", 57821)
+s1.connect((TCP_IP1, TCP_PORT1))
+print('connected! - viewer')
 
 # Initialize flask
 app = Flask(__name__)
@@ -175,9 +176,9 @@ def ldm_upload(project_id_str):
         # TODO: Have to implement a method to extinguish the image type
         img_type = 0
 
-        # if parsed_eo[2] - my_drone.ipod_params["ground_height"] <= height_threshold:
-        #     print("  * The height is too low: ", parsed_eo[2] - my_drone.ipod_params["ground_height"], " m")
-        #     return "The height of the image is too low"
+        if parsed_eo[2] - my_drone.ipod_params["ground_height"] <= height_threshold:
+            print("  * The height is too low: ", parsed_eo[2] - my_drone.ipod_params["ground_height"], " m")
+            return "The height of the image is too low"
 
         if not my_drone.pre_calibrated:
             print(' * System calibration...')
@@ -227,6 +228,8 @@ def ldm_upload(project_id_str):
         # bbox_coords = json.loads(bbox_coords_bytes)
         print("received!")
         ####################################
+
+        # bboxed_img = highlighting_bbox(imgencode, [x1, y1, x2, y2, cls_id])
 
         img_rows = restored_img.shape[0]
         img_cols = restored_img.shape[1]
