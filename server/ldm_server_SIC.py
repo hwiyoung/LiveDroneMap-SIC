@@ -178,9 +178,9 @@ def ldm_upload(project_id_str):
         # TODO: Have to implement a method to extinguish the image type
         img_type = 0
 
-        # if parsed_eo[2] - my_drone.ipod_params["ground_height"] <= height_threshold:
-        #     print("  * The height is too low: ", parsed_eo[2] - my_drone.ipod_params["ground_height"], " m")
-        #     return "The height of the image is too low"
+        if parsed_eo[2] - my_drone.ipod_params["ground_height"] <= height_threshold:
+            print("  * The height is too low: ", parsed_eo[2] - my_drone.ipod_params["ground_height"], " m")
+            return "The height of the image is too low"
 
         if not my_drone.pre_calibrated:
             print(' * System calibration...')
