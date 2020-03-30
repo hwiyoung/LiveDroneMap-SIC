@@ -15,7 +15,7 @@ def boundary(image, eo, R, dem, pixel_size, focal_length):
     bbox[2] = min(proj_coordinates[1, :])  # Y min
     bbox[3] = max(proj_coordinates[1, :])  # Y max
 
-    return bbox
+    return bbox, proj_coordinates.T
 
 def getVertices(image, pixel_size, focal_length):
     rows = image.shape[0]
@@ -102,6 +102,15 @@ def export_bbox_to_wkt2(bbox, dst):
     # f = open(dst + '.txt', 'w')
     # f.write(res)
     # f.close()
+    return res
+
+def export_bbox_to_wkt3(bbox):
+    res = "POLYGON ((" + \
+          str(bbox[0, 0]) + " " + str(bbox[0, 1]) + ", " + \
+          str(bbox[1, 0]) + " " + str(bbox[1, 1]) + ", " + \
+          str(bbox[2, 0]) + " " + str(bbox[2, 1]) + ", " + \
+          str(bbox[3, 0]) + " " + str(bbox[3, 1]) + ", " + \
+          str(bbox[0, 0]) + " " + str(bbox[0, 1]) + "))"
     return res
 
 

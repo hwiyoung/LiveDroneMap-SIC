@@ -9,20 +9,16 @@ from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request
 from werkzeug.utils import secure_filename
 
-from config import config_flask
+from config import config_flask, config_watchdog
 from server.image_processing.img_metadata_generation import create_img_metadata_udp, create_obj_metadata
 from clients.webodm import WebODM
 from clients.mago3d import Mago3D
 
-from server.image_processing.orthophoto_generation.Orthophoto import rectify, rectify2
-from server.image_processing.orthophoto_generation.ExifData import get_metadata
-from server.image_processing.orthophoto_generation.EoData import rpy_to_opk, geographic2plane
+from server.image_processing.orthophoto_generation.Orthophoto import rectify
+from server.image_processing.orthophoto_generation.ExifData import get_metadata, restoreOrientation
+from server.image_processing.orthophoto_generation.EoData import rpy_to_opk_smartphone, geographic2plane, \
+                                                                 Rot3D, kappa_from_location_diff
 from server.image_processing.orthophoto_generation.Boundary import transform_bbox
-
-# Convert pixel bbox to world bbox
-from server.image_processing.orthophoto_generation.Boundary import pcs2ccs, projection
-from server.image_processing.orthophoto_generation.EoData import Rot3D, latlon2tmcentral, tmcentral2latlon
-from server.image_processing.orthophoto_generation.ExifData import getExif, restoreOrientation
 
 from struct import *
 
@@ -36,21 +32,34 @@ s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 s.connect((TCP_IP, TCP_PORT))
 print('connected! - inference')
 
-# def highlighting_bbox(image,bbox):
-#     idx = 0
-#     blue = (255, 0, 0)
-#     green = (0, 255, 0)
-#     red = (0, 0, 255)
-#     black = (0, 0, 0)
-#     purple = (128,0,128)
-#     notorange = (255,127,80)
-#     object_color = {1: blue, 2: green, 3: black, 4: red, 5: purple, 6: notorange}
-#     for object_id in bbox[4]:
-#         if object_id == 6:
-#             test = 0
-#         image = cv2.rectangle(image, (bbox[0][idx] - 5, bbox[1][idx] - 5), (bbox[2][idx] + 5, bbox[3][idx] + 5), object_color[object_id], 5)
-#         idx += 1
-#     return image
+
+def recvall(sock,headersize):
+    buf = b''
+    header = unpack('>H', sock.recv(headersize)) # length(4byte) + data
+    count = header[0]
+    while count:
+        newbuf = sock.recv(count)
+        if not newbuf:
+            return None
+        buf += newbuf
+        count -= len(newbuf)
+    return buf
+
+def highlighting_bbox(image,bbox):
+    idx = 0
+    blue = (255, 0, 0)
+    green = (0, 255, 0)
+    red = (0, 0, 255)
+    black = (0, 0, 0)
+    purple = (128,0,128)
+    notorange = (255,127,80)
+    object_color = {1: blue, 2: green, 3: black, 4: red, 5: purple, 6: notorange}
+    for object_id in bbox[4]:
+        if object_id == 6:
+            test = 0
+        image = cv2.rectangle(image, (bbox[0][idx] - 5, bbox[1][idx] - 5), (bbox[2][idx] + 5, bbox[3][idx] + 5), object_color[object_id], 5)
+        idx += 1
+    return image
 
 #########################
 # Client for map viewer #
@@ -78,11 +87,12 @@ mago3d = Mago3D(
     api_key=app.config['MAGO3D_CONFIG']['api_key']
 )
 
-height_threshold = 100
+height_threshold = 50
+omega_phi_threshold = np.pi / 180 * 50
 epsg = 3857
 
-from server.my_drones import DJIMavic
-my_drone = DJIMavic(pre_calibrated=False)
+from server.my_drones import GalaxyS10_SIC
+my_drone = GalaxyS10_SIC(pre_calibrated=False)
 
 def allowed_file(fname):
     return '.' in fname and fname.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
@@ -111,7 +121,7 @@ def project():
         # Using the assigned ID, ldm makes a new folder to projects directory
         new_project_dir = os.path.join(app.config['UPLOAD_FOLDER'], project_id)
         os.mkdir(new_project_dir)
-        os.mkdir(os.path.join(new_project_dir, 'rectified'))
+        # os.mkdir(os.path.join(new_project_dir, 'rectified'))
 
         # LDM returns the project ID that Mago3D assigned
         return project_id
@@ -145,7 +155,7 @@ def ldm_upload(project_id_str):
         }
 
         # Check integrity of uploaded files
-        for key in ['img', 'eo']:
+        for key in ['img']:
             if key not in request.files:  # Key check
                 return 'No %s part' % key
             file = request.files[key]
@@ -153,7 +163,7 @@ def ldm_upload(project_id_str):
                 return 'No selected file'
             if file and allowed_file(file.filename):  # If the keys and corresponding values are OK
                 fname_dict[key] = secure_filename(file.filename)
-                file.save(os.path.join(project_path, fname_dict[key]))  # 클라이언트로부터 전송받은 파일을 저장한다.
+                file.save(os.path.join(project_path, fname_dict[key]))  # Save the file from client
             else:
                 return 'Failed to save the uploaded files'
 
@@ -161,28 +171,38 @@ def ldm_upload(project_id_str):
         # IPOD chain 1: Pre-processing #
         ################################
         print("IPOD chain 1: Pre-processing")
-        print(" * Read EOP...")
-        parsed_eo = my_drone.preprocess_eo_file(os.path.join(project_path, fname_dict['eo']))   # degrees
-        if parsed_eo[2] - my_drone.ipod_params["ground_height"] <= height_threshold:
-            print(" * The height is too low: ", parsed_eo[2] - my_drone.ipod_params["ground_height"], " m")
-            return "The height of the image is too low"
+        print(" * Metadata extraction...")
+        focal_length, orientation, parsed_eo, before_lonlat, \
+        uuid, task_id, maker = get_metadata(os.path.join(project_path, fname_dict["img"]),
+                                            "Linux")  # unit: m, _, deg, deg, _, _, _
+        # TODO: Have to implement a method to extinguish the image type
+        img_type = 0
+
+        # if parsed_eo[2] - my_drone.ipod_params["ground_height"] <= height_threshold:
+        #     print("  * The height is too low: ", parsed_eo[2] - my_drone.ipod_params["ground_height"], " m")
+        #     return "The height of the image is too low"
 
         if not my_drone.pre_calibrated:
             print(' * System calibration...')
-            opk = rpy_to_opk(parsed_eo[3:])
-            parsed_eo[3:] = opk * np.pi / 180  # degree to radian
-            if abs(opk[0]) > 0.175 or abs(opk[1]) > 0.175:
-                print('Too much omega/phi will kill you')
-                return 'Too much omega/phi will kill you'
+            transformed_eo = geographic2plane(parsed_eo, epsg)
 
-        transformed_eo = geographic2plane(parsed_eo, epsg)
+            # # Sensor
+            # opk = rpy_to_opk_smartphone(transformed_eo[3:])
+            # transformed_eo[3:] = opk * np.pi / 180  # degree to radian
+
+            # Location
+            before_xy = geographic2plane(before_lonlat, epsg)
+            opk = np.empty(3)
+            opk[0:2] = 0
+            opk[-1] = kappa_from_location_diff(transformed_eo, before_xy)
+            transformed_eo[3:] = opk * np.pi / 180  # degree to radian
+
+            # if abs(opk[0]) > omega_phi_threshold or abs(opk[1]) > omega_phi_threshold:
+            #     print('Too much omega/phi will kill you')
+            #     return 'Too much omega/phi will kill you'
+
         R_GC = Rot3D(transformed_eo)
         R_CG = R_GC.T
-
-        print(" * Metadata extraction...")
-        focal_length, orientation, _ = get_metadata(os.path.join(project_path, fname_dict["img"]),
-                                                    "Linux")  # unit: m, _, ndarray
-        img_type = 0
 
         preprocess_time = time.time()
 
@@ -198,18 +218,20 @@ def ldm_upload(project_id_str):
         ####################################
         # Send the image to inference server
         print("start sending...")
-        img_shape = json.dumps(img.shape[:2]).encode('utf-8').ljust(16)
         string_data = restored_img.tostring()
-        s.send(img_shape)
-        s.send(string_data)
+        hei, wid, _ = restored_img.shape
+        header = pack('>2s2H', b'st', wid, hei)
+        s.send(header + string_data)
 
         # Receiving Bbox info
-        data_len = s.recv(16)
-
-        bbox_coords_bytes = s.recv(int(data_len))
+        bbox_coords_bytes = recvall(s, 2)
         bbox_coords = json.loads(bbox_coords_bytes)
+        # bbox_coords_bytes = s.recv(65534)
+        # bbox_coords = json.loads(bbox_coords_bytes)
         print("received!")
         ####################################
+
+        # bboxed_img = highlighting_bbox(imgencode, [x1, y1, x2, y2, cls_id])
 
         img_rows = restored_img.shape[0]
         img_cols = restored_img.shape[1]
@@ -235,9 +257,9 @@ def ldm_upload(project_id_str):
         ##################################################
         # IPOD chain 3: Individual orthophoto generation #
         ##################################################
-        fname_dict['img_rectified'] = fname_dict['img'].split('.')[0] + '.tif'
-        bbox_wkt = rectify2(
-            project_path=project_path,
+        fname_dict['img_rectified'] = fname_dict['img'].split('.')[0] + '.png'
+        bbox_wkt = rectify(
+            output_path=config_watchdog.BaseConfig.DIRECTORY_FOR_OUTPUT,
             img_fname=fname_dict['img'],
             restored_image=restored_img,
             focal_length=focal_length,
@@ -249,11 +271,11 @@ def ldm_upload(project_id_str):
         )
         rectify_time = time.time()
 
-        uuid = "test1234"
         # Generate metadata for InnoMapViewer
         img_metadata = create_img_metadata_udp(
             uuid=uuid,
-            path=project_path + "/" + fname_dict['img_rectified'],
+            task_id=task_id,
+            path=os.path.join(config_watchdog.BaseConfig.DIRECTORY_FOR_OUTPUT, fname_dict['img_rectified']),
             name=fname_dict['img'],
             img_type=img_type,
             tm_eo=[parsed_eo[0], parsed_eo[1]],
@@ -268,7 +290,6 @@ def ldm_upload(project_id_str):
         #############################################
         fmt = '<4si' + str(len(img_metadata_info)) + 's'  # s: string, i: int
         data_to_send = pack(fmt, b"IPOD", len(img_metadata_info), img_metadata_info.encode())
-        # s1.sendto(data_to_send, dest)
         s1.send(data_to_send)
 
         transmission_time = time.time()
@@ -277,6 +298,7 @@ def ldm_upload(project_id_str):
                                                  inference_time - preprocess_time, rectify_time - inference_time,
                                                  metadata_time - rectify_time, transmission_time - metadata_time)
         f.write(cur_time)
+        print("Name | Pre-processing | Object Detection | Orthophoto | Metadata | Transmission")
         print(cur_time)
 
         return 'Image upload and IPOD chain complete'

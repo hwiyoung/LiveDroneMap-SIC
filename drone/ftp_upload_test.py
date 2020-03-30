@@ -10,12 +10,13 @@ myPassword = "innopam#1"
 myPort = 5001
 
 # local_path = '/mnt/AIMIFY/sample/20190830/Flir_name'
-# local_path = '/mnt/AIMIFY/live_image/abx101/20191025/sony'
-local_path = "./examples"
+local_path = '/internalCompany/P2019.SeoulChallenge/04_aerial_smartphone/0324_KAU_runway'
+# local_path = "./examples"
+
 
 # remote_path = '/home/innopam-ldm/PycharmProjects/livedronemap/drone/downloads'
-# remote_path = '/mnt/AIMIFY/live_image/abx101/20191025/sony_test'
-remote_path = "./downloads"
+remote_path = '/internalCompany/P2019.SeoulChallenge/00_drone'
+# remote_path = "./downloads"
 
 cnopts = pysftp.CnOpts()
 cnopts.hostkeys = None
