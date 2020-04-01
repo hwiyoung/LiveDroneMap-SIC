@@ -1,5 +1,5 @@
 class BaseConfig:
-    LDM_ADDRESS = 'http://127.0.0.1:30011/'
+    LDM_ADDRESS = 'http://127.0.0.1:30022/'
     MAGO3D_ADDRESS = 'http://ys.innopam.com:20080/'
     LDM_PROJECT_NAME = 'SIC-tutorial'
     DIRECTORY_FOR_OUTPUT = "/internalCompany/P2019.SeoulChallenge/00_output"

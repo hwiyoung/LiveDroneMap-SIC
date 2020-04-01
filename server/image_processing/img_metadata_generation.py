@@ -52,6 +52,29 @@ def create_img_metadata_udp(uuid, task_id, path, name, img_type, tm_eo, img_boun
     return img_metadata
 
 
+def create_img_metadata_tcp(uuid, task_id, name, img_type, img_boundary, objects):
+    """
+    Create a metadata of an orthophoto for tcp transmission
+    :param uuid: uuid of the image | string
+    :param uuid: task id of the image | string
+    :param name: A name of the original image | string
+    :param img_type: A type of the image - optical(0)/thermal(1) | int
+    :param img_boundary: Boundary of the orthophoto | string in wkt
+    :param objects: JSON object? array? of the detected object ... from create_obj_metadata
+    :return: JSON object of the orthophoto ... python dictionary
+    """
+    img_metadata = {
+        "uid": uuid,    # string
+        "task_id": task_id,  # string
+        "img_name": name,   # string
+        "img_type": img_type,   # int
+        "img_boundary": img_boundary,  # WKT ... string
+        "objects": objects
+    }
+
+    return img_metadata
+
+
 def create_obj_metadata(object_type, boundary):
     """
     Create a metadata of **each** detected object

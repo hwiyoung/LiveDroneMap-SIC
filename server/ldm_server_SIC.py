@@ -10,11 +10,11 @@ from flask import Flask, request
 from werkzeug.utils import secure_filename
 
 from config import config_flask, config_watchdog
-from server.image_processing.img_metadata_generation import create_img_metadata_udp, create_obj_metadata
+from server.image_processing.img_metadata_generation import create_img_metadata_tcp, create_obj_metadata
 from clients.webodm import WebODM
 from clients.mago3d import Mago3D
 
-from server.image_processing.orthophoto_generation.Orthophoto import rectify
+from server.image_processing.orthophoto_generation.Orthophoto import rectify_SIC
 from server.image_processing.orthophoto_generation.ExifData import get_metadata, restoreOrientation
 from server.image_processing.orthophoto_generation.EoData import rpy_to_opk_smartphone, geographic2plane, \
                                                                  Rot3D, kappa_from_location_diff
@@ -217,7 +217,7 @@ def ldm_upload(project_id_str):
 
         ####################################
         # Send the image to inference server
-        print("start sending...")
+        print(" * start sending...")
         string_data = restored_img.tostring()
         hei, wid, _ = restored_img.shape
         header = pack('>2s2H', b'st', wid, hei)
@@ -228,7 +228,7 @@ def ldm_upload(project_id_str):
         bbox_coords = json.loads(bbox_coords_bytes)
         # bbox_coords_bytes = s.recv(65534)
         # bbox_coords = json.loads(bbox_coords_bytes)
-        print("received!")
+        print("  * received!")
         ####################################
 
         # bboxed_img = highlighting_bbox(imgencode, [x1, y1, x2, y2, cls_id])
@@ -257,8 +257,9 @@ def ldm_upload(project_id_str):
         ##################################################
         # IPOD chain 3: Individual orthophoto generation #
         ##################################################
+        print("IPOD chain 3: Individual orthophoto generation")
         fname_dict['img_rectified'] = fname_dict['img'].split('.')[0] + '.png'
-        bbox_wkt = rectify(
+        bbox_wkt, orthophoto = rectify_SIC(
             output_path=config_watchdog.BaseConfig.DIRECTORY_FOR_OUTPUT,
             img_fname=fname_dict['img'],
             restored_image=restored_img,
@@ -269,16 +270,15 @@ def ldm_upload(project_id_str):
             ground_height=my_drone.ipod_params['ground_height'],
             epsg=epsg
         )
+        orthophoto_string = orthophoto.tostring()
         rectify_time = time.time()
 
         # Generate metadata for InnoMapViewer
-        img_metadata = create_img_metadata_udp(
+        img_metadata = create_img_metadata_tcp(
             uuid=uuid,
             task_id=task_id,
-            path=os.path.join(config_watchdog.BaseConfig.DIRECTORY_FOR_OUTPUT, fname_dict['img_rectified']),
             name=fname_dict['img'],
             img_type=img_type,
-            tm_eo=[parsed_eo[0], parsed_eo[1]],
             img_boundary=bbox_wkt,
             objects=obj_metadata
         )
@@ -288,8 +288,9 @@ def ldm_upload(project_id_str):
         #############################################
         # Send object information to web map viewer #
         #############################################
-        fmt = '<4si' + str(len(img_metadata_info)) + 's'  # s: string, i: int
-        data_to_send = pack(fmt, b"IPOD", len(img_metadata_info), img_metadata_info.encode())
+        fmt = '<4si' + str(len(img_metadata_info)) + 'si' + str(len(orthophoto_string)) + 's'  # s: string, i: int
+        data_to_send = pack(fmt, b"IPOD", len(img_metadata_info), img_metadata_info.encode(),
+                                          len(orthophoto_string), orthophoto_string)
         s1.send(data_to_send)
 
         transmission_time = time.time()
@@ -305,5 +306,5 @@ def ldm_upload(project_id_str):
 
 
 if __name__ == '__main__':
-    app.run(threaded=True, host='0.0.0.0', port=30011)
+    app.run(threaded=True, host='0.0.0.0', port=30022)
     # socket.close()

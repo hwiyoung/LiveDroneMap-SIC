@@ -11,7 +11,7 @@ from server.image_processing.orthophoto_generation.BackprojectionResample import
     resample, create_pnga
 
 
-def rectify(output_path, img_fname, restored_image, focal_length, pixel_size,
+def rectify_SIC(output_path, img_fname, restored_image, focal_length, pixel_size,
              eo, R_GC, ground_height, epsg, gsd='auto'):
     """
     Rectifies a given drone image on a reference plane
@@ -63,13 +63,18 @@ def rectify(output_path, img_fname, restored_image, focal_length, pixel_size,
     b, g, r, a = resample(backProj_coords, boundary_rows, boundary_cols, restored_image)
     print("--- %s seconds ---" % (time.time() - start_time))
 
-    print('Save the image in png')
+    # print('Save the image in png')
+    # start_time = time.time()
+    # create_pnga(b, g, r, a, bbox, gsd, epsg, dst)
+    # print("--- %s seconds ---" % (time.time() - start_time))
+
+    print('Merge b, g, r, a')
     start_time = time.time()
-    create_pnga(b, g, r, a, bbox, gsd, epsg, dst)
+    orthophoto_array = cv2.merge((b, g, r, a))
     print("--- %s seconds ---" % (time.time() - start_time))
 
     print('*** Processing time per each image')
     print("--- %s seconds ---" % (time.time() - rectify_time))
 
     bbox_wkt = export_bbox_to_wkt3(proj_bbox)
-    return bbox_wkt
+    return bbox_wkt, orthophoto_array
