@@ -100,15 +100,13 @@ class DJIPhantom4RTK(BaseDrone):
 class GalaxyS10_SIC(BaseDrone):
     def __init__(self, pre_calibrated=False):
         self.ipod_params = {
-            "sensor_width": 5.75,      # mm
+            # "sensor_width": 5.75,      # mm, 4K
+            "sensor_width": 6.27,  # mm, FHD
             'focal_length': 0.00432,   # m
             'gsd': 'auto',
             # 'ground_height': 32.425,  # m, Yongsan
             'ground_height': 33.5,  # m, KAU
-            "R_CB": np.array(
-                [[0.992103011532570, -0.0478682839576757, -0.115932057253170],
-                 [0.0636038625107261, 0.988653550290218, 0.136083452970098],
-                 [0.108102558627082, -0.142382530141501, 0.983890772356761]], dtype=float)
+            "R_CB": np.ones((3, 3), dtype=float)
         }
         self.pre_calibrated = pre_calibrated
 

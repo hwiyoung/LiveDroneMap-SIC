@@ -10,5 +10,5 @@ class BaseConfig:
     IMAGE_FILE_EXT = 'jpg'
     EO_FILE_EXT = 'txt'
     UPLOAD_INTERVAL = 1
-    CAMERA_MANUFACTURER = 'DJI'     # DJI / samsung
+    CAMERA_MANUFACTURER = 'samsung'     # DJI / samsung
     VISUALIZATION_MODE = 'LOCAL'    # MAGO3D / LOCAL
