@@ -10,12 +10,12 @@ myPassword = "innopam#1"
 myPort = 5001
 
 # local_path = '/mnt/AIMIFY/sample/20190830/Flir_name'
-local_path = '/internalCompany/P2019.SeoulChallenge/04_aerial_smartphone/0324_KAU_runway'
+local_path = '/internalCompany/P2019.SeoulChallenge/04_aerial_smartphone/0331_KAU_runway_test'
 # local_path = "./examples"
 
 
 # remote_path = '/home/innopam-ldm/PycharmProjects/livedronemap/drone/downloads'
-remote_path = '/internalCompany/P2019.SeoulChallenge/00_drone'
+remote_path = '/internalCompany/P2019.SeoulChallenge/00_drone_test'
 # remote_path = "./downloads"
 
 cnopts = pysftp.CnOpts()
@@ -31,4 +31,4 @@ with pysftp.Connection(host=myHostname, username=myUsername, password=myPassword
 
     for fname in tqdm(fname_list):
         sftp.put(local_path + '/' + fname, remote_path + '/' + fname)
-        time.sleep(5)
+        time.sleep(2)

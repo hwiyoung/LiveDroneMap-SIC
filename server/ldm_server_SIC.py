@@ -178,9 +178,9 @@ def ldm_upload(project_id_str):
         # TODO: Have to implement a method to extinguish the image type
         img_type = 0
 
-        if parsed_eo[2] - my_drone.ipod_params["ground_height"] <= height_threshold:
-            print("  * The height is too low: ", parsed_eo[2] - my_drone.ipod_params["ground_height"], " m")
-            return "The height of the image is too low"
+        # if parsed_eo[2] - my_drone.ipod_params["ground_height"] <= height_threshold:
+        #     print("  * The height is too low: ", parsed_eo[2] - my_drone.ipod_params["ground_height"], " m")
+        #     return "The height of the image is too low"
 
         if not my_drone.pre_calibrated:
             print(' * System calibration...')
@@ -196,6 +196,7 @@ def ldm_upload(project_id_str):
             opk[0:2] = 0
             opk[-1] = kappa_from_location_diff(transformed_eo, before_xy)
             transformed_eo[3:] = opk * np.pi / 180  # degree to radian
+            print(transformed_eo)
 
             # if abs(opk[0]) > omega_phi_threshold or abs(opk[1]) > omega_phi_threshold:
             #     print('Too much omega/phi will kill you')
@@ -270,7 +271,10 @@ def ldm_upload(project_id_str):
             ground_height=my_drone.ipod_params['ground_height'],
             epsg=epsg
         )
-        orthophoto_string = orthophoto.tostring()
+        # Write image to memory
+        orthophoto_encode = cv2.imencode('.png', orthophoto)
+        orthophoto_bytes = orthophoto_encode[1].tostring()
+
         rectify_time = time.time()
 
         # Generate metadata for InnoMapViewer
@@ -284,13 +288,14 @@ def ldm_upload(project_id_str):
         )
         metadata_time = time.time()
 
-        img_metadata_info = json.dumps(img_metadata)
+        img_metadata_bytes = json.dumps(img_metadata).encode()
         #############################################
         # Send object information to web map viewer #
         #############################################
-        fmt = '<4si' + str(len(img_metadata_info)) + 'si' + str(len(orthophoto_string)) + 's'  # s: string, i: int
-        data_to_send = pack(fmt, b"IPOD", len(img_metadata_info), img_metadata_info.encode(),
-                                          len(orthophoto_string), orthophoto_string)
+        full_length = len(img_metadata_bytes) + len(orthophoto_bytes)
+        fmt = '<4siii' + str(len(img_metadata_bytes)) + 's' + str(len(orthophoto_bytes)) + 's'  # s: string, i: int
+        data_to_send = pack(fmt, b"IPOD", full_length, len(img_metadata_bytes), len(orthophoto_bytes),
+                            img_metadata_bytes, orthophoto_bytes)
         s1.send(data_to_send)
 
         transmission_time = time.time()

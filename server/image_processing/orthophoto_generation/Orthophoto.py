@@ -44,6 +44,7 @@ def rectify_SIC(output_path, img_fname, restored_image, focal_length, pixel_size
     # Boundary size
     boundary_cols = int((bbox[1, 0] - bbox[0, 0]) / gsd)
     boundary_rows = int((bbox[3, 0] - bbox[2, 0]) / gsd)
+    print(boundary_rows, boundary_cols)
 
     print('projectedCoord')
     start_time = time.time()

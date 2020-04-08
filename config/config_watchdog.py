@@ -4,10 +4,10 @@ class BaseConfig:
     LDM_PROJECT_NAME = 'SIC-tutorial'
     DIRECTORY_FOR_OUTPUT = "/internalCompany/P2019.SeoulChallenge/00_output"
     # DIRECTORY_TO_WATCH = "/internalCompany/P2019.SeoulChallenge/test_dir_watch"
-    DIRECTORY_TO_WATCH = "/internalCompany/P2019.SeoulChallenge/00_drone"
+    DIRECTORY_TO_WATCH = "/internalCompany/P2019.SeoulChallenge/00_drone_test"
     # DIRECTORY_IMAGE_CHECK = 'drone/examples'
     # DIRECTORY_TO_WATCH = 'drone/downloads'
-    IMAGE_FILE_EXT = 'png'
+    IMAGE_FILE_EXT = 'jpg'
     EO_FILE_EXT = 'txt'
     UPLOAD_INTERVAL = 1
     CAMERA_MANUFACTURER = 'DJI'     # DJI / samsung
