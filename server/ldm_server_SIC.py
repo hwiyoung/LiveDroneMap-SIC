@@ -175,8 +175,7 @@ def ldm_upload(project_id_str):
         focal_length, orientation, parsed_eo, before_lonlat, \
         uuid, task_id, maker = get_metadata(os.path.join(project_path, fname_dict["img"]),
                                             "Linux")  # unit: m, _, deg, deg, _, _, _
-        # TODO: Have to implement a method to extinguish the image type
-        img_type = 0
+        img_type = int(os.path.splitext(os.path.join(project_path, fname_dict["img"]))[0][-1])
 
         # if parsed_eo[2] - my_drone.ipod_params["ground_height"] <= height_threshold:
         #     print("  * The height is too low: ", parsed_eo[2] - my_drone.ipod_params["ground_height"], " m")
@@ -269,7 +268,8 @@ def ldm_upload(project_id_str):
             eo=transformed_eo,
             R_GC=R_GC,
             ground_height=my_drone.ipod_params['ground_height'],
-            epsg=epsg
+            epsg=epsg,
+            img_type=img_type
         )
         # Write image to memory
         orthophoto_encode = cv2.imencode('.png', orthophoto)

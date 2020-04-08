@@ -8,11 +8,11 @@ from server.image_processing.orthophoto_generation.ExifData import restoreOrient
 from server.image_processing.orthophoto_generation.EoData import geographic2plane, Rot3D
 from server.image_processing.orthophoto_generation.Boundary import boundary, export_bbox_to_wkt3
 from server.image_processing.orthophoto_generation.BackprojectionResample import projectedCoord, backProjection, \
-    resample, create_pnga
+    resample, resample_thermal, create_pnga
 
 
 def rectify_SIC(output_path, img_fname, restored_image, focal_length, pixel_size,
-             eo, R_GC, ground_height, epsg, gsd='auto'):
+             eo, R_GC, ground_height, epsg, img_type, gsd='auto'):
     """
     Rectifies a given drone image on a reference plane
     :param output_path: A path which an individual orthophoto will be generated
@@ -24,6 +24,7 @@ def rectify_SIC(output_path, img_fname, restored_image, focal_length, pixel_size
     :param R_GC: Rotation matrix from Ground to Camera
     :param ground_height: A height of ground which a drone is launched
     :param epsg: An EPSG number of a coordinate system of a generated individual orthophoto
+    :param img_type: A type of the image - 0: optical, 1: thermal
     :param gsd: Ground Sampling Distance of a raw image
     :return: Boundary box of a generated orthophoto in wkt format
     """
@@ -59,23 +60,35 @@ def rectify_SIC(output_path, img_fname, restored_image, focal_length, pixel_size
     backProj_coords = backProjection(proj_coords, R_GC, focal_length, pixel_size, image_size)
     print("--- %s seconds ---" % (time.time() - start_time))
 
-    print('resample')
-    start_time = time.time()
-    b, g, r, a = resample(backProj_coords, boundary_rows, boundary_cols, restored_image)
-    print("--- %s seconds ---" % (time.time() - start_time))
+    if img_type == 0:
+        print('resample - optical')
+        start_time = time.time()
+        b, g, r, a = resample(backProj_coords, boundary_rows, boundary_cols, restored_image)
+        print("--- %s seconds ---" % (time.time() - start_time))
 
-    # print('Save the image in png')
-    # start_time = time.time()
-    # create_pnga(b, g, r, a, bbox, gsd, epsg, dst)
-    # print("--- %s seconds ---" % (time.time() - start_time))
+        # print('Save the image in png')
+        # start_time = time.time()
+        # create_pnga(b, g, r, a, bbox, gsd, epsg, dst)
+        # print("--- %s seconds ---" % (time.time() - start_time))
 
-    print('Merge b, g, r, a')
-    start_time = time.time()
-    orthophoto_array = cv2.merge((b, g, r, a))
-    print("--- %s seconds ---" % (time.time() - start_time))
+        print('Merge each band(b, g, r, a)')
+        start_time = time.time()
+        orthophoto_array = cv2.merge((b, g, r, a))
+        print("--- %s seconds ---" % (time.time() - start_time))
 
-    print('*** Processing time per each image')
-    print("--- %s seconds ---" % (time.time() - rectify_time))
+        print('*** Processing time per each image')
+        print("--- %s seconds ---" % (time.time() - rectify_time))
+    elif img_type == 1:
+        print('resample - thermal')
+        start_time = time.time()
+        gray = resample_thermal(backProj_coords, boundary_rows, boundary_cols, restored_image)
+        orthophoto_array = gray
+        print("--- %s seconds ---" % (time.time() - start_time))
+
+        print('*** Processing time per each image')
+        print("--- %s seconds ---" % (time.time() - rectify_time))
+    else:
+        return
 
     bbox_wkt = export_bbox_to_wkt3(proj_bbox)
     return bbox_wkt, orthophoto_array
