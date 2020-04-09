@@ -75,7 +75,7 @@ def create_img_metadata_tcp(uuid, task_id, name, img_type, img_boundary, objects
     return img_metadata
 
 
-def create_obj_metadata(object_type, boundary):
+def create_obj_metadata(object_type, boundary_image, boundary_world):
     """
     Create a metadata of **each** detected object
     :param object_type: Type of the object | int
@@ -83,16 +83,17 @@ def create_obj_metadata(object_type, boundary):
     :return: JSON object of each detected object ... python dictionary
     """
     obj_metadata = {
-        "obj_type": object_type
+        "obj_type": object_type,
+        "obj_boundary_image": boundary_image
     }
 
     object_boundary = "POLYGON (("
-    for i in range(boundary.shape[1]):
-        object_boundary = object_boundary + str(boundary[0, i]) + " " + str(boundary[1, i]) + ", "
-    object_boundary = object_boundary + str(boundary[0, 0]) + " " + str(boundary[1, 0]) + "))"
+    for i in range(boundary_world.shape[1]):
+        object_boundary = object_boundary + str(boundary_world[0, i]) + " " + str(boundary_world[1, i]) + ", "
+    object_boundary = object_boundary + str(boundary_world[0, 0]) + " " + str(boundary_world[1, 0]) + "))"
     # print("object_boundary: ", object_boundary)
 
-    obj_metadata["obj_boundary"] = object_boundary  # string in wkt
+    obj_metadata["obj_boundary_world"] = object_boundary  # string in wkt
     # print("obj_metadata: " ,obj_metadata)
 
     return obj_metadata

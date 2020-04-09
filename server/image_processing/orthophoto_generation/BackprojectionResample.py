@@ -58,35 +58,6 @@ def resample(coord, boundary_rows, boundary_cols, image):
     return b, g, r, a
 
 @jit(nopython=True)
-def resample_SIC(coord, boundary_rows, boundary_cols, image, type):
-    # Define channels of an orthophoto
-    b = np.zeros(shape=(boundary_rows, boundary_cols), dtype=np.uint8)
-    g = np.zeros(shape=(boundary_rows, boundary_cols), dtype=np.uint8)
-    r = np.zeros(shape=(boundary_rows, boundary_cols), dtype=np.uint8)
-    a = np.zeros(shape=(boundary_rows, boundary_cols), dtype=np.uint8)
-
-    rows = np.reshape(coord[1], (boundary_rows, boundary_cols))
-    cols = np.reshape(coord[0], (boundary_rows, boundary_cols))
-
-    rows = rows.astype(np.int16)
-    #rows = np.int16(rows)
-    cols = cols.astype(np.int16)
-
-    for row in range(boundary_rows):
-        for col in range(boundary_cols):
-            if cols[row, col] < 0 or cols[row, col] >= image.shape[1]:
-                continue
-            elif rows[row, col] < 0 or rows[row, col] >= image.shape[0]:
-                continue
-            else:
-                b[row, col] = image[rows[row, col], cols[row, col]][0]
-                g[row, col] = image[rows[row, col], cols[row, col]][1]
-                r[row, col] = image[rows[row, col], cols[row, col]][2]
-                a[row, col] = 255
-
-    return b, g, r, a
-
-@jit(nopython=True)
 def resample_thermal(coord, boundary_rows, boundary_cols, image):
     # Define channels of an orthophoto
     gray = np.zeros(shape=(boundary_rows, boundary_cols))

@@ -45,21 +45,6 @@ def recvall(sock,headersize):
         count -= len(newbuf)
     return buf
 
-def highlighting_bbox(image,bbox):
-    idx = 0
-    blue = (255, 0, 0)
-    green = (0, 255, 0)
-    red = (0, 0, 255)
-    black = (0, 0, 0)
-    purple = (128,0,128)
-    notorange = (255,127,80)
-    object_color = {1: blue, 2: green, 3: black, 4: red, 5: purple, 6: notorange}
-    for object_id in bbox[4]:
-        if object_id == 6:
-            test = 0
-        image = cv2.rectangle(image, (bbox[0][idx] - 5, bbox[1][idx] - 5), (bbox[2][idx] + 5, bbox[3][idx] + 5), object_color[object_id], 5)
-        idx += 1
-    return image
 
 #########################
 # Client for map viewer #
@@ -218,10 +203,13 @@ def ldm_upload(project_id_str):
         ####################################
         # Send the image to inference server
         print(" * start sending...")
-        string_data = restored_img.tostring()
-        hei, wid, _ = restored_img.shape
-        header = pack('>2s2H', b'st', wid, hei)
-        s.send(header + string_data)
+        # string_data = restored_img.tostring()
+        # hei, wid, _ = restored_img.shape
+        # header = pack('>2s2H', b'st', wid, hei)
+        # s.send(header + string_data)
+        string_data = cv2.imencode('.png', restored_img)[1].tobytes()
+        string_data_size = pack('>I', len(string_data))
+        s.send(b'st' + string_data_size + string_data)
 
         # Receiving Bbox info
         bbox_coords_bytes = recvall(s, 2)
@@ -244,7 +232,7 @@ def ldm_upload(project_id_str):
                                         my_drone.ipod_params['focal_length'],
                                         transformed_eo, R_CG, my_drone.ipod_params['ground_height'])
 
-            obj_metadata.append(create_obj_metadata(bbox[4], bbox_world))
+            obj_metadata.append(create_obj_metadata(bbox[4], str(bbox), bbox_world))
 
         # x1 = [603, 800, 289]
         # x2 = [708, 988, 392]
