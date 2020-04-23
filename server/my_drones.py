@@ -66,7 +66,7 @@ class DJIMavic(BaseDrone):
 class DJIPhantom4RTK(BaseDrone):
     def __init__(self, pre_calibrated=False):
         self.ipod_params = {
-            "sensor_width": 6.3,
+            "sensor_width": 13.2,
             'focal_length': 0.0088,
             'gsd': 'auto',
             'ground_height': 27.0,
